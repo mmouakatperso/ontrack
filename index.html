@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ONTRACK, demonstration academique locale de tutorat pour les etudiants ENCG.">
+  <title>ONTRACK | Your Study, Our Priority.</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="data.js"></script>
+  <script defer src="store.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Aller au contenu</a>
+  <div class="demo-bar"><span class="demo-dot"></span> Demonstration academique <span class="demo-detail">Donnees fictives · Aucun paiement reel</span></div>
+  <header class="header">
+    <a href="#accueil" class="brand" aria-label="ONTRACK, accueil"><span class="brand-mark" aria-hidden="true">↗</span>ONTRACK<span class="brand-dot">.</span></a>
+    <nav aria-label="Navigation principale" id="nav">
+      <a href="#catalogue">Trouver un tuteur</a><a href="#orientation">Orientation</a><a href="#pods">Study Pods <span class="tiny">Bientot</span></a>
+    </nav>
+    <label class="role-label">Espace simule<select id="role" aria-label="Changer d'espace simule"><option value="accueil">Visiteur</option><option value="etudiant">Etudiant</option><option value="tuteur">Tuteur</option><option value="admin">Administration</option></select></label>
+  </header>
+  <div id="storage-warning" role="status"></div>
+  <div id="feedback" role="status" aria-live="polite" tabindex="-1"></div>
+  <main id="main" tabindex="-1"></main>
+  <footer>
+    <div><a class="brand" href="#accueil">ONTRACK<span class="brand-dot">.</span></a><p>Your Study, Our Priority.</p></div>
+    <nav aria-label="Informations"><a href="#presentation">A propos</a><a href="#contact">Contact</a><a href="#mentions">Mentions & donnees</a><button type="button" data-action="reset" class="text-button">Reinitialiser la demo</button></nav>
+    <p class="footer-note">Projet academique independant. Roles simules, sans authentification. Donnees sur cet appareil uniquement.</p>
+  </footer>
+  <noscript>Cette demonstration necessite JavaScript active. Aucune connexion reseau n'est requise.</noscript>
+</body>
+</html>
