@@ -4,6 +4,38 @@
   const KEY = 'ontrack-demo-v1';
   const copy = value => JSON.parse(JSON.stringify(value));
   const assert = (condition, message) => { if (!condition) throw new Error(message); };
+  const legacyLabels = new Map(Object.entries({
+    'Kenitra': 'Kénitra', 'Fes': 'Fès', 'Beni Mellal': 'Béni Mellal', 'Meknes': 'Meknès',
+    'Francais': 'Français', 'Presentiel': 'Présentiel', 'Comptabilite': 'Comptabilité',
+    'Bilan et resultat': 'Bilan et résultat', 'Comptabilite analytique': 'Comptabilité analytique',
+    'Probabilites': 'Probabilités', 'Regression': 'Régression', 'Strategie marketing': 'Stratégie marketing',
+    'Etude de marche': 'Étude de marché', 'Étude de marche': 'Étude de marché',
+    'Des methodes concretes pour comprendre les chiffres.': 'Des méthodes concrètes pour comprendre les chiffres.',
+    'Des méthodes concretes pour comprendre les chiffres.': 'Des méthodes concrètes pour comprendre les chiffres.',
+    'Seance reprogrammee.': 'Séance reprogrammée.',
+    'Inscription fictive verifiee.': 'Inscription fictive vérifiée.',
+    'Annulation : credit restitue, expiration inchangee.': 'Annulation : crédit restitué, expiration inchangée.',
+    'Annulation : remboursement simule enregistre.': 'Annulation : remboursement simulé enregistré.',
+    'Fin de seance simulee pour la demonstration.': 'Fin de séance simulée pour la démonstration.',
+    'Compte rendu publie et progression actualisee.': 'Compte rendu publié et progression actualisée.',
+    'Profil tuteur soumis a validation.': 'Profil tuteur soumis à validation.',
+    'Statut du tuteur actualise.': 'Statut du tuteur actualisé.',
+    'Message conserve localement, aucun envoi.': 'Message conservé localement, aucun envoi.'
+  }));
+  function upgradeLabels(candidate) {
+    const label = value => legacyLabels.get(value) || value;
+    for (const key of ['encgs', 'chapters']) if (Array.isArray(candidate[key])) candidate[key] = candidate[key].map(label);
+    if (candidate.student) candidate.student.encg = label(candidate.student.encg);
+    for (const tutor of candidate.tutors || []) {
+      if (!tutor) continue;
+      for (const key of ['encg', 'subject', 'language', 'mode', 'bio']) tutor[key] = label(tutor[key]);
+      if (Array.isArray(tutor.chapters)) tutor.chapters = tutor.chapters.map(label);
+    }
+    for (const booking of candidate.bookings || []) if (Array.isArray(booking?.report?.chapters)) booking.report.chapters = booking.report.chapters.map(label);
+    for (const program of candidate.programs || []) if (program) program.language = label(program.language);
+    for (const notification of candidate.notifications || []) if (notification && typeof notification.text === 'string') notification.text = label(notification.text).replace(/^Reservation confirmee avec (.+)\. Paiement simule uniquement\.$/, 'Réservation confirmée avec $1. Paiement simulé uniquement.');
+    return candidate;
+  }
   function createStore(storage, clock) {
     const now = clock || (() => new Date());
     let state = data.seed(now());
@@ -11,7 +43,7 @@
     const id = () => `${now().getTime()}-${Math.random().toString(36).slice(2, 10)}`;
     function valid(candidate) {
       assert(candidate && candidate.version === 1, 'Version locale incompatible.');
-      for (const key of ['encgs', 'chapters', 'tutors', 'offers', 'programs', 'bookings', 'packages', 'transactions', 'reviews', 'notifications', 'messages']) assert(Array.isArray(candidate[key]), 'Donnees locales invalides.');
+      for (const key of ['encgs', 'chapters', 'tutors', 'offers', 'programs', 'bookings', 'packages', 'transactions', 'reviews', 'notifications', 'messages']) assert(Array.isArray(candidate[key]), 'Données locales invalides.');
       const strings = (item, keys) => item && keys.every(key => typeof item[key] === 'string');
       assert(candidate.encgs.every(item => typeof item === 'string') && candidate.chapters.length > 0 && candidate.chapters.every(item => typeof item === 'string'), 'Catalogue invalide.');
       assert(candidate.student === null || (strings(candidate.student, ['id', 'name', 'encg', 'level', 'track']) && candidate.student.name.trim() && typeof candidate.student.verified === 'boolean'), 'Profil invalide.');
@@ -21,7 +53,7 @@
       for (const tutor of candidate.tutors) assert(strings(tutor, ['id', 'name', 'subject', 'encg', 'level', 'language', 'mode', 'bio', 'photo']) && /^assets\/(yassine|lina|adam)\.jpg$/.test(tutor.photo) && Number.isFinite(tutor.rating) && typeof tutor.approved === 'boolean' && Array.isArray(tutor.slots) && tutor.slots.every(slot => Number.isFinite(Date.parse(slot))) && Array.isArray(tutor.chapters) && tutor.chapters.every(chapter => candidate.chapters.includes(chapter)), 'Tuteur invalide.');
       for (const offer of candidate.offers) assert(strings(offer, ['id', 'name']) && Number.isFinite(offer.price) && offer.price > 0 && Number.isInteger(offer.credits) && offer.credits > 0 && Number.isFinite(offer.minutes) && offer.minutes > 0 && offer.days > 0, 'Offre invalide.');
       for (const booking of candidate.bookings) {
-        assert(strings(booking, ['id', 'studentId', 'studentName', 'tutorId', 'offerId', 'offerName', 'need']) && candidate.tutors.some(tutor => tutor.id === booking.tutorId) && Number.isFinite(Date.parse(booking.start)) && ['confirmed', 'completed', 'cancelled'].includes(booking.status) && Number.isFinite(booking.price) && Number.isFinite(booking.minutes) && booking.minutes > 0, 'Reservation invalide.');
+        assert(strings(booking, ['id', 'studentId', 'studentName', 'tutorId', 'offerId', 'offerName', 'need']) && candidate.tutors.some(tutor => tutor.id === booking.tutorId) && Number.isFinite(Date.parse(booking.start)) && ['confirmed', 'completed', 'cancelled'].includes(booking.status) && Number.isFinite(booking.price) && Number.isFinite(booking.minutes) && booking.minutes > 0, 'Réservation invalide.');
         assert(booking.report === null || (strings(booking.report, ['text', 'mastery']) && Array.isArray(booking.report.chapters) && booking.report.chapters.every(chapter => candidate.chapters.includes(chapter))), 'Compte rendu invalide.');
       }
       for (const pack of candidate.packages) assert(strings(pack, ['id', 'studentId', 'offerId', 'name', 'transactionId']) && Number.isInteger(pack.remaining) && pack.remaining >= 0 && pack.remaining <= pack.total && Number.isFinite(pack.unitPrice) && Number.isFinite(Date.parse(pack.expires)), 'Forfait invalide.');
@@ -35,11 +67,11 @@
     try {
       assert(storage, 'Stockage indisponible.');
       const saved = storage.getItem(KEY);
-      if (saved) state = valid(JSON.parse(saved));
+      if (saved) state = valid(upgradeLabels(JSON.parse(saved)));
       storage.setItem(KEY, JSON.stringify(state));
-    } catch (error) { warning = 'Stockage indisponible ou invalide : mode memoire actif. Les changements seront perdus au rechargement.'; storage = null; }
+    } catch (error) { warning = 'Stockage indisponible ou invalide : mode mémoire actif. Les changements seront perdus au rechargement.'; storage = null; }
     function save() {
-      if (storage) try { storage.setItem(KEY, JSON.stringify(state)); } catch (error) { storage = null; warning = 'Echec de sauvegarde : mode memoire actif. Une ancienne sauvegarde peut subsister, y compris apres suppression du profil. Effacez les donnees du site dans le navigateur.'; }
+      if (storage) try { storage.setItem(KEY, JSON.stringify(state)); } catch (error) { storage = null; warning = 'Échec de sauvegarde : mode mémoire actif. Une ancienne sauvegarde peut subsister, y compris après suppression du profil. Effacez les données du site dans le navigateur.'; }
     }
     function notify(text) { state.notifications.unshift({ id: id(), text, created: now().toISOString() }); }
     function mutate(action) {
@@ -47,36 +79,36 @@
       try { const result = action(); valid(state); save(); return copy(result === undefined ? null : result); }
       catch (error) { state = before; throw error; }
     }
-    function student() { assert(state.student && state.student.verified, 'Inscrivez un profil fictif verifie.'); return state.student; }
+    function student() { assert(state.student && state.student.verified, 'Inscrivez un profil fictif vérifié.'); return state.student; }
     function available(tutor, start, minutes, except) {
-      assert(tutor && tutor.approved, 'Tuteur non valide.');
-      assert(tutor.slots.includes(start) && new Date(start) > now(), 'Creneau passe ou incompatible.');
+      assert(tutor && tutor.approved, 'Tuteur non validé.');
+      assert(tutor.slots.includes(start) && new Date(start) > now(), 'Créneau passé ou incompatible.');
       const end = Date.parse(start) + minutes * 60000;
-      assert(!state.bookings.some(booking => booking.id !== except && booking.status !== 'cancelled' && (booking.tutorId === tutor.id || booking.studentId === state.student?.id) && Date.parse(booking.start) < end && Date.parse(start) < Date.parse(booking.start) + booking.minutes * 60000), 'Creneau occupe. Choisissez un autre horaire.');
+      assert(!state.bookings.some(booking => booking.id !== except && booking.status !== 'cancelled' && (booking.tutorId === tutor.id || booking.studentId === state.student?.id) && Date.parse(booking.start) < end && Date.parse(start) < Date.parse(booking.start) + booking.minutes * 60000), 'Créneau occupe. Choisissez un autre horaire.');
     }
     const api = {
       get: () => copy(state), warning: () => warning,
       reset: confirmed => { assert(confirmed === true, 'Confirmation requise.'); state = data.seed(now()); save(); },
       register: profile => mutate(() => {
-        assert(profile.name?.trim() && profile.name.length <= 80 && state.encgs.includes(profile.encg) && ['S2', 'S4', 'S6', 'S8', 'S10'].includes(profile.level) && ['Gestion', 'Finance', 'Marketing'].includes(profile.track) && profile.verified === true, 'Profil fictif incomplet ou verification manquante.');
+        assert(profile.name?.trim() && profile.name.length <= 80 && state.encgs.includes(profile.encg) && ['S2', 'S4', 'S6', 'S8', 'S10'].includes(profile.level) && ['Gestion', 'Finance', 'Marketing'].includes(profile.track) && profile.verified === true, 'Profil fictif incomplet ou vérification manquante.');
         state.student = { id: state.student?.id || id(), name: profile.name.trim(), encg: profile.encg, level: profile.level, track: profile.track, verified: true };
-        notify('Inscription fictive verifiee.');
+        notify('Inscription fictive vérifiée.');
       }),
       book: input => mutate(() => {
         const participant = student();
         const offer = state.offers.find(item => item.id === input.offerId);
         assert(offer, 'Service inconnu.');
-        assert(typeof input.need === 'string' && input.need.trim().length >= 3 && input.need.length <= 500, 'Precisez votre besoin (3 a 500 caracteres).');
+        assert(typeof input.need === 'string' && input.need.trim().length >= 3 && input.need.length <= 500, 'Précisez votre besoin (3 à 500 caracteres).');
         const tutor = state.tutors.find(item => item.id === input.tutorId);
         available(tutor, input.start, offer.minutes);
         let pack;
         let transaction;
         if (input.packageId) {
           pack = state.packages.find(item => item.id === input.packageId && item.studentId === participant.id && item.offerId === offer.id);
-          assert(pack && pack.remaining > 0 && new Date(pack.expires) > now() && Date.parse(input.start) + offer.minutes * 60000 <= Date.parse(pack.expires), 'Credit epuise, expire ou hors validite.');
+          assert(pack && pack.remaining > 0 && new Date(pack.expires) > now() && Date.parse(input.start) + offer.minutes * 60000 <= Date.parse(pack.expires), 'Crédit épuisé, expiré ou hors validité.');
           pack.remaining -= 1;
         } else {
-          assert(input.payment === 'accepted', input.payment === 'abandoned' ? 'Paiement abandonne. Aucune reservation.' : 'Paiement refuse. Reessayez.');
+          assert(input.payment === 'accepted', input.payment === 'abandoned' ? 'Paiement abandonné. Aucune réservation.' : 'Paiement refusé. Réessayez.');
           transaction = { id: id(), studentId: participant.id, amount: offer.price, offerName: offer.name, created: now().toISOString(), status: 'paid' };
           state.transactions.push(transaction);
           if (offer.credits > 1) {
@@ -94,7 +126,7 @@
               }
             }
             else expires.setTime(expires.getTime() + offer.days * 86400000);
-            assert(Date.parse(input.start) + offer.minutes * 60000 <= expires.getTime(), 'Creneau hors de la validite du forfait.');
+            assert(Date.parse(input.start) + offer.minutes * 60000 <= expires.getTime(), 'Créneau hors de la validité du forfait.');
             pack = { id: id(), studentId: participant.id, offerId: offer.id, name: offer.name, remaining: offer.credits - 1, total: offer.credits, expires: expires.toISOString(), transactionId: transaction.id, unitPrice: offer.price / offer.credits };
             state.packages.push(pack);
           }
@@ -103,40 +135,40 @@
           pack.creditValues = transaction ? Array.from({ length: pack.total }, (_, index) => (Math.round((index + 1) * transaction.amount * 100 / pack.total) - Math.round(index * transaction.amount * 100 / pack.total)) / 100) : Array.from({ length: pack.remaining + 1 }, () => Math.round(pack.unitPrice * 100) / 100);
         }
         const booking = { id: id(), studentId: participant.id, studentName: participant.name, tutorId: tutor.id, offerId: offer.id, offerName: offer.name, start: input.start, minutes: offer.minutes, price: pack ? pack.creditValues.shift() : offer.price, transactionId: pack ? pack.transactionId : transaction.id, packageId: pack?.id || null, need: input.need.trim(), status: 'confirmed', report: null, cancellationSettled: false };
-        state.bookings.push(booking); notify(`Reservation confirmee avec ${tutor.name}. Paiement simule uniquement.`); return booking;
+        state.bookings.push(booking); notify(`Réservation confirmée avec ${tutor.name}. Paiement simulé uniquement.`); return booking;
       }),
       reschedule: (bookingId, start) => mutate(() => {
         const booking = state.bookings.find(item => item.id === bookingId && item.studentId === student().id);
         assert(booking && booking.status === 'confirmed' && !booking.simulatedEnded && new Date(booking.start) > now(), 'Reprogrammation indisponible.');
         const pack = state.packages.find(item => item.id === booking.packageId);
-        assert(!pack || Date.parse(start) + booking.minutes * 60000 <= Date.parse(pack.expires), 'Creneau hors validite.');
+        assert(!pack || Date.parse(start) + booking.minutes * 60000 <= Date.parse(pack.expires), 'Créneau hors validité.');
         available(state.tutors.find(item => item.id === booking.tutorId), start, booking.minutes, booking.id);
-        booking.start = start; notify('Seance reprogrammee.');
+        booking.start = start; notify('Séance reprogrammée.');
       }),
       cancel: (bookingId, refund) => mutate(() => {
         const booking = state.bookings.find(item => item.id === bookingId);
-        assert(booking && booking.status === 'confirmed' && !booking.simulatedEnded && new Date(booking.start) > now(), 'Annulation possible uniquement avant le debut.');
+        assert(booking && booking.status === 'confirmed' && !booking.simulatedEnded && new Date(booking.start) > now(), 'Annulation possible uniquement avant le début.');
         booking.status = 'cancelled'; booking.cancellationSettled = true;
         const pack = state.packages.find(item => item.id === booking.packageId);
         if (pack && !refund && new Date(pack.expires) > now()) { pack.remaining += 1; if (pack.creditValues) pack.creditValues.unshift(booking.price); }
         else state.transactions.push({ id: id(), studentId: booking.studentId, amount: -booking.price, offerName: booking.offerName, created: now().toISOString(), status: 'refunded', bookingId: booking.id });
-        notify(pack && !refund && new Date(pack.expires) > now() ? 'Annulation : credit restitue, expiration inchangee.' : 'Annulation : remboursement simule enregistre.');
+        notify(pack && !refund && new Date(pack.expires) > now() ? 'Annulation : crédit restitué, expiration inchangée.' : 'Annulation : remboursement simulé enregistré.');
       }),
       simulateEnd: (bookingId, tutorId) => mutate(() => {
         const booking = state.bookings.find(item => item.id === bookingId && item.tutorId === tutorId);
-        assert(booking && booking.status === 'confirmed', 'Seance indisponible.');
-        booking.simulatedEnded = true; notify('Fin de seance simulee pour la demonstration.');
+        assert(booking && booking.status === 'confirmed', 'Séance indisponible.');
+        booking.simulatedEnded = true; notify('Fin de séance simulée pour la démonstration.');
       }),
       complete: (bookingId, report, tutorId) => mutate(() => {
         const booking = state.bookings.find(item => item.id === bookingId && item.tutorId === tutorId);
-        assert(booking && booking.status === 'confirmed' && (booking.simulatedEnded || Date.parse(booking.start) + booking.minutes * 60000 <= now().getTime()), 'La seance doit etre terminee.');
+        assert(booking && booking.status === 'confirmed' && (booking.simulatedEnded || Date.parse(booking.start) + booking.minutes * 60000 <= now().getTime()), 'La séance doit être terminée.');
         const tutor = state.tutors.find(item => item.id === tutorId);
         assert(report.text?.trim() && report.text.length <= 1000 && Array.isArray(report.chapters) && report.chapters.length > 0 && report.chapters.every(chapter => tutor.chapters.includes(chapter)) && ['revise', 'maitrise'].includes(report.mastery), 'Compte rendu ou chapitres invalides.');
-        booking.report = { text: report.text.trim(), chapters: [...new Set(report.chapters)], mastery: report.mastery }; booking.status = 'completed'; notify('Compte rendu publie et progression actualisee.');
+        booking.report = { text: report.text.trim(), chapters: [...new Set(report.chapters)], mastery: report.mastery }; booking.status = 'completed'; notify('Compte rendu publié et progression actualisée.');
       }),
       review: (bookingId, rating, text) => mutate(() => {
         const booking = state.bookings.find(item => item.id === bookingId && item.studentId === student().id);
-        assert(booking?.status === 'completed' && !state.reviews.some(item => item.bookingId === bookingId), 'Un avis unique est reserve au participant apres la seance.');
+        assert(booking?.status === 'completed' && !state.reviews.some(item => item.bookingId === bookingId), 'Un avis unique est réservé au participant après la séance.');
         assert(Number.isInteger(rating) && rating >= 1 && rating <= 5 && text?.trim() && text.length <= 500, 'Avis invalide.');
         state.reviews.push({ id: id(), bookingId, tutorId: booking.tutorId, studentId: booking.studentId, rating, text: text.trim(), hidden: false });
       }),
@@ -146,32 +178,32 @@
       },
       updateTutor: (tutorId, input) => mutate(() => {
         const tutor = state.tutors.find(item => item.id === tutorId); assert(tutor, 'Tuteur introuvable.');
-        assert(input.bio?.trim() && input.bio.length <= 500 && ['Francais', 'Arabe', 'Anglais'].includes(input.language) && ['En ligne', 'Presentiel'].includes(input.mode), 'Profil tuteur invalide.');
-        Object.assign(tutor, { bio: input.bio.trim(), language: input.language, mode: input.mode, approved: false }); notify('Profil tuteur soumis a validation.');
+        assert(input.bio?.trim() && input.bio.length <= 500 && ['Français', 'Arabe', 'Anglais'].includes(input.language) && ['En ligne', 'Présentiel'].includes(input.mode), 'Profil tuteur invalide.');
+        Object.assign(tutor, { bio: input.bio.trim(), language: input.language, mode: input.mode, approved: false }); notify('Profil tuteur soumis à validation.');
       }),
-      approve: tutorId => mutate(() => { const tutor = state.tutors.find(item => item.id === tutorId); assert(tutor, 'Tuteur introuvable.'); tutor.approved = !tutor.approved; notify('Statut du tuteur actualise.'); }),
+      approve: tutorId => mutate(() => { const tutor = state.tutors.find(item => item.id === tutorId); assert(tutor, 'Tuteur introuvable.'); tutor.approved = !tutor.approved; notify('Statut du tuteur actualisé.'); }),
       catalogue: (tutorId, input) => mutate(() => {
         const tutor = state.tutors.find(item => item.id === tutorId);
         const chapters = [...new Set(String(input.chapters || '').split(';').map(chapter => chapter.trim()).filter(Boolean))];
         assert(tutor && typeof input.subject === 'string' && input.subject.trim().length > 0 && input.subject.length <= 80 && ['S2', 'S4', 'S6', 'S8', 'S10'].includes(input.level) && chapters.length > 0 && chapters.length <= 12 && chapters.every(chapter => chapter.length <= 80), 'Catalogue incomplet ou chapitre trop long.');
         tutor.subject = input.subject.trim(); tutor.level = input.level; tutor.chapters = chapters;
         state.chapters = [...new Set([...state.chapters, ...chapters])];
-        notify('Matiere, niveau et chapitres actualises. Chapitres historiques conserves.');
+        notify('Matière, niveau et chapitres actualisés. Chapitres historiques conservés.');
       }),
       addSlot: (tutorId, start) => mutate(() => {
-        const tutor = state.tutors.find(item => item.id === tutorId); assert(tutor && Number.isFinite(Date.parse(start)) && new Date(start) > now(), 'Disponibilite invalide.');
+        const tutor = state.tutors.find(item => item.id === tutorId); assert(tutor && Number.isFinite(Date.parse(start)) && new Date(start) > now(), 'Disponibilité invalide.');
         const calendar = /^(\d{4})-(\d{2})-(\d{2})T/.exec(start);
         assert(calendar && new Date(Date.UTC(Number(calendar[1]), Number(calendar[2]) - 1, Number(calendar[3]))).getUTCDate() === Number(calendar[3]) && Number(calendar[2]) >= 1 && Number(calendar[2]) <= 12, 'Date du calendrier invalide.');
-        const iso = new Date(start).toISOString(); assert(!tutor.slots.includes(iso), 'Creneau deja propose.'); tutor.slots.push(iso); tutor.slots.sort();
+        const iso = new Date(start).toISOString(); assert(!tutor.slots.includes(iso), 'Créneau déjà proposé.'); tutor.slots.push(iso); tutor.slots.sort();
       }),
-      removeSlot: (tutorId, start) => mutate(() => { const tutor = state.tutors.find(item => item.id === tutorId); assert(tutor, 'Tuteur introuvable.'); assert(!state.bookings.some(item => item.tutorId === tutorId && item.start === start && item.status === 'confirmed'), 'Creneau reserve.'); tutor.slots = tutor.slots.filter(slot => slot !== start); }),
+      removeSlot: (tutorId, start) => mutate(() => { const tutor = state.tutors.find(item => item.id === tutorId); assert(tutor, 'Tuteur introuvable.'); assert(!state.bookings.some(item => item.tutorId === tutorId && item.start === start && item.status === 'confirmed'), 'Créneau réservé.'); tutor.slots = tutor.slots.filter(slot => slot !== start); }),
       price: (offerId, amount) => mutate(() => { const offer = state.offers.find(item => item.id === offerId); assert(offer && Number.isFinite(amount) && amount > 0 && amount <= 10000, 'Tarif invalide.'); offer.price = Math.round(amount * 100) / 100; }),
       moderate: reviewId => mutate(() => { const review = state.reviews.find(item => item.id === reviewId); assert(review, 'Avis introuvable.'); review.hidden = !review.hidden; }),
       program: input => mutate(() => {
         const existing = state.programs.find(item => item.id === input.id); assert(existing, 'Programme introuvable.');
-        assert(Number.isFinite(input.minGrade) && input.minGrade >= 0 && input.minGrade <= 20 && Number.isFinite(input.budget) && input.budget >= 0, 'Criteres invalides.'); Object.assign(existing, { minGrade: input.minGrade, budget: input.budget, active: input.active === true });
+        assert(Number.isFinite(input.minGrade) && input.minGrade >= 0 && input.minGrade <= 20 && Number.isFinite(input.budget) && input.budget >= 0, 'Critères invalides.'); Object.assign(existing, { minGrade: input.minGrade, budget: input.budget, active: input.active === true });
       }),
-      message: (name, text) => mutate(() => { assert(name?.trim() && name.length <= 80 && text?.trim() && text.length <= 1000, 'Message invalide.'); state.messages.push({ id: id(), name: name.trim(), text: text.trim(), created: now().toISOString() }); notify('Message conserve localement, aucun envoi.'); }),
+      message: (name, text) => mutate(() => { assert(name?.trim() && name.length <= 80 && text?.trim() && text.length <= 1000, 'Message invalide.'); state.messages.push({ id: id(), name: name.trim(), text: text.trim(), created: now().toISOString() }); notify('Message conservé localement, aucun envoi.'); }),
       deleteProfile: confirmed => mutate(() => {
         assert(confirmed === true, 'Confirmation requise.'); const participant = student();
         for (const key of ['bookings', 'packages', 'transactions', 'reviews']) state[key] = state[key].filter(item => item.studentId !== participant.id);
