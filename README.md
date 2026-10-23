@@ -2,77 +2,63 @@
 
 **Your Study, Our Priority.**
 
-Démonstration académique interactive en français, réalisée uniquement avec HTML, CSS et JavaScript natifs. Aucun serveur applicatif, aucune compilation, aucune dépendance a installer et aucune requete réseau au fonctionnement.
+Démonstration interactive et complète du cahier des charges ONTRACK (plateforme de tutorat et d'orientation pour les 12 ENCG du Maroc). HTML, CSS et JavaScript natifs, sans dépendance, sans compilation, sans serveur et sans requête réseau. Chaque exigence du cahier a un équivalent simulé et traçable : voir [docs/COUVERTURE_CDC.md](docs/COUVERTURE_CDC.md).
 
 ## Lancement
 
-Ouvrir directement [index.html](index.html) dans un navigateur récent (Chrome, Edge ou Firefox). JavaScript doit être actif. Les scripts classiques et les images locales fonctionnent avec une URL `file:`. Il n'est pas nécessaire de démarrer un serveur.
+Ouvrir directement [index.html](index.html) dans un navigateur récent (URL `file:` acceptée). JavaScript doit être activé. Les données sont conservées dans `localStorage` (clé `ontrack-demo-v2`) ; si le stockage est indisponible ou corrompu, un bandeau signale le mode mémoire. Un ancien état v1 est réinitialisé automatiquement.
 
-Le stockage des pages `file:` depend du navigateur et de ses reglages. Un bandeau signalé le repli en mémoire si localStorage est indisponible, invalide ou sature. En mode mémoire, les données restent utilisables pendant la visite, mais sont perdues au rechargement. Utiliser le même navigateur, le même chemin et le même onglet pour la soutenance. Ne pas utiliser plusieurs onglets pour modifier simultanement les données ; un avertissement invite a recharger en cas de changement dans un autre onglet sur les origines qui le permettent.
+Comptes de démonstration (connexion rapide disponible sur la page **Connexion**) :
 
-Pour un hébergement statique facultatif, déposer ensemble les fichiers HTML, CSS, JS et le dossier assets sur un hébergeur statique. Aucun service distant ni variable d'environnement n'est requis. Le stockage reste propre a l'origine du site et ne migre pas depuis le fichier local.
-
-## Scénario de soutenance
-
-1. Choisir **Réinitialiser la démo** dans le pied de page et confirmer. Les créneaux initiaux sont générés relativement au jour de la remise à zéro, a 10 h, 14 h et 18 h, en heure marocaine. Les changements saisonniers du fuseau `Africa/Casablanca` sont pris en compte par `Intl`.
-2. Depuis **Créer mon profil**, saisir un nom invente, une ENCG, un niveau et une filière, puis cocher la vérification fictive. Un profil exemple est déjà disponible au premier lancement. Aucun e-mail, mot de passe ou document n'est collecte.
-3. Dans **Trouver un tuteur**, appliquer des filtres, ouvrir le profil de Yassine puis choisir un créneau. Decrire un besoin fictif. Choisir le résultat de paiement **Refusé** ou **Abandonné** : aucune réservation ni transaction n'est créée. Réessayer avec **Accepté**.
-4. Retrouver la séance dans l'espace étudiant. Reprogrammer vers un autre créneau. Changer d'espace avec le selecteur d'en-tete : le tuteur et l'administration retrouvent la même réservation. Recharger pour constater sa persistance lorsque le stockage fonctionne.
-5. Dans l'espace tuteur, choisir Yassine puis **Simuler la fin de séance** et confirmer. Cette action est uniquement un raccourci de soutenance, sans vidéo ni modification de l'horloge. Cocher un ou plusieurs chapitres, indiquer révisé ou maîtrisé et publier le compte rendu. Une séance reellement écoulée accepté aussi le compte rendu sans simulation. Une séance terminée ne peut plus être annulée ou reprogrammée.
-6. Dans l'espace étudiant, lire le compte rendu, publier un avis unique et consulter la progression. Un chapitre distinct sur les six du catalogue donne 17 %, deux donnent 33 %. Le calcul utilisé les chapitres révisés ou maîtrisés des comptes rendus, sans doublons.
-7. Réserver **Exam Rescue** : 399 DH simulés activent trois séances de 90 min sur sept jours, premiere séance incluse. Pour les suivantes, choisir le forfait existant dans **Règlement simulé** ; une seule transaction d'achat reste enregistrée. Un forfait épuisé, expiré ou incompatible avec la date choisie est bloqué. **Stay ONTRACK** comprend quatre séances de 60 min sur un mois calendaire, borne au dernier jour du mois si nécessaire.
-8. Annuler une séance future et confirmer : restituer le crédit valide sans changer son expiration, ou demander un remboursement simulé sans restitution du crédit. Une annulation répétée est refusée. Sans forfait, l'annulation enregistré directement le remboursement simulé.
-9. Dans l'administration, **Comptes & validation**, valider Adam. Son profil devient reservable dans le catalogue. Une nouvelle soumission de profil depuis l'espace tuteur remet la validation en attente. La suspension n'annulé pas les réservations déjà créées, mais bloqué les nouvelles réservations et reprogrammations vers ce profil.
-10. Modifier le tarif Quick Help dans **Catalogue & tarifs**, puis effectuer une nouvelle réservation. Le nouveau tarif s'applique seulement au nouvel achat ; réservations, transactions et valeur des crédits déjà achetes restent inchanges. Consulter les statistiques dérivées, remboursements, rémunérations, modération et messages locaux.
-11. Dans **Orientation**, comparer les programmes fictifs avec filière, niveau, pays, langue, moyenne et budget. Les critères sont affichés ; aucun résultat ne promet une admission. L'administration peut modifier les seuils, budgets et la visibilité des programmes. **Study Pods** ne proposé aucune réservation et reste **Coming Soon**.
-12. Tester le contact local, puis la suppression du profil étudiant avec confirmation. Pour recommencer, confirmer la remise à zéro. Une confirmation annulée ne modifié rien.
-
-## Offres initiales et règles
-
-| Offre | Tarif simulé | Format |
+| Profil | Adresse | Mot de passe |
 | --- | --- | --- |
-| Quick Help | 50 DH | 1 × 30 min |
-| Catch-up | 150 DH | 1 × 90 min |
-| Exam Rescue | 399 DH | 3 × 90 min sur sept jours |
-| Stay ONTRACK | 349 DH | 4 × 60 min sur un mois |
+| Étudiante | salma.benali@etu.encg-casablanca.demo | Demo2026! |
+| Étudiant abonné Stay | omar.tazi@etu.encg-settat.demo | Demo2026! |
+| Tuteur | yassine.amrani@etu.encg-casablanca.demo | Demo2026! |
+| Tutrice | lina.elfassi@etu.encg-fes.demo | Demo2026! |
+| Tuteur en attente | adam.idrissi@etu.encg-tanger.demo | Demo2026! |
+| Administration | admin@ontrack.demo | Admin2026! |
 
-Les forfaits commencent au paiement simulé et chaque séance doit se terminer avant l'expiration. Le mois Stay ONTRACK est calculé en heure marocaine, y compris lors des changements saisonniers. Aucun renouvellement automatique ; crédits expirés non reportés. L'annulation n'est permise qu'avant le début ou la fin simulée. Le remboursement d'un crédit utilisé vaut sa part historique d'achat ; les centimes sont répartis entre les crédits pour conserver exactement le total du forfait. Les rémunérations sont simulées à 80 % du prix historique des séances terminées avec compte rendu ; aucun versement n'a lieu. Les règles sont propres à ce prototype.
+## Scénario de soutenance (≈ 15 minutes)
+
+1. **Réinitialiser la démo** (pied de page). Présenter l'accueil : logo et slogan, « Find Your Tutor », concept, tarifs, avantages, suivi de progression, orientation, Study Pods « Coming Soon », pied de page légal.
+2. **Inscription** : choisir l'ENCG Fès et saisir `karim@gmail.com` → refus (domaine non autorisé). Saisir `karim@etu.encg-fes.demo` → compte non vérifié ; ouvrir la **Boîte mail simulée**, copier le code, le saisir sur **Vérifier mon adresse** → compte activé, e-mail de bienvenue.
+3. **Sécurité** : se déconnecter, tenter 5 fois un mauvais mot de passe sur le compte d'Omar → blocage 15 minutes, même message qu'avec une adresse inconnue. Montrer **Mot de passe oublié** (message neutre, code par e-mail).
+4. **Parcours §10.1** (connexion rapide Salma) : Find Your Tutor → matière → besoin (chapitre, difficulté, mode, description, pièce jointe facultative) → service (Catch-up) → tuteurs correspondants (raisons affichées) → créneau en heure marocaine (créneaux « Prioritaire Stay » verrouillés) → récapitulatif, prix et politique d'annulation → paiement.
+5. **Passerelle CMI simulée** : choisir **Paiement refusé** → réservation non confirmée, créneau libéré, e-mail d'échec. **Nouvel essai** puis **Paiement accepté** → page de confirmation, transaction payée dans **Historique**, e-mails « Paiement confirmé » et « Réservation confirmée » dans la boîte mail.
+6. **Tuteur** (connexion rapide Yassine) : notification de nouvelle réservation, informations de séance, **Simuler la fin de séance**, rédiger le compte rendu en six rubriques (matière et chapitres avec statut, notions, exercices, difficultés, points à réviser, recommandations). Retour Salma : **Progression** (pourcentage par matière avec la méthode de calcul) et **Comptes rendus** ; publier un avis.
+7. **Forfaits** (Omar, abonné Stay) : Mes forfaits (séances réalisées, planifiées, restantes), **Planifier une séance** avec un crédit (aucun paiement), réservation d'un créneau prioritaire ; résiliation.
+8. **Administration** : **Tuteurs** → valider Adam ; il apparaît au **catalogue** et ses créneaux deviennent réservables. **Tarifs** : modifier Quick Help (les achats passés gardent leur prix). **Politique**, **Domaines e-mail**, **Matières & niveaux**. **Paiements** : tester « Rejouer la notification » et « Notification mal signée » (sans effet). **Rémunérations** : passer en phase rémunérée, clôturer une séance, enregistrer un versement. **Modération** : un avis signalé par le tuteur est masqué et sort de la moyenne. **Vue d'ensemble** : suivi financier.
+9. **Orientation** (Salma) : profil, recommandations critère par critère sans promesse d'admission, demande d'entretien (e-mail de confirmation) ; l'administrateur la planifie.
+10. **Study Pods** : page Coming Soon, inscription aux actualités ; côté administration, prototype QR à usage unique (seconde validation refusée).
+11. **Sauvegarde** : export JSON, import, puis suppression de compte depuis Mon profil (mot de passe requis).
 
 ## Vérification
 
-Node.js 22 ou plus récent, uniquement pour les tests :
-
 ```sh
-node --test tests/store.test.cjs
-node --check app.js
+node --test tests/store.test.cjs tests/views.test.cjs
+for f in *.js; do node --check "$f"; done
 ```
 
-Les tests natifs couvrent réservation et persistance, refus/abandon atomiques, conflits et chevauchements, créneaux passés/incompatibles, validation tuteur, débit des crédits, expiration/épuisement, annulation et remboursement, reprogrammation, tarifs historiques, compte rendu, progression, avis unique, rémunération, stockage corrompu/indisponible, reset, suppression et fin de mois.
-
-Contrôles navigateur : ouverture directe sans serveur, scénario transversal, formulaires de paiement, forfaits, annulation, validation tuteur, orientation et reset. Vérifier les images locales, le clavier et l'absence de débordement du document en mobile et ordinateur ; les tables et onglets disposent de leur propre défilement horizontal lorsque nécessaire.
+Node.js 22 ou plus récent, uniquement pour les tests. `store.test.cjs` couvre la matrice de la spécification (inscription, blocage, retenue de créneau, paiement signé et idempotent, échec, annulation, compte rendu, avis, rôles) ainsi que les cas historiques (forfaits, centimes, fin de mois, chevauchements, repli mémoire). `views.test.cjs` rend chaque route pour chaque rôle, vérifie gardes (`O.access`), `noindex`, échappement et branchement des formulaires, et pilote les vrais gestionnaires (assistant, passerelle, compte rendu). Les contrôles navigateur (390/1440 px, clavier) sont manuels et ne font pas partie du dépôt.
 
 ## Organisation
 
-- [index.html](index.html) : entrée statique, navigation, bandeau permanent de démonstration.
-- [styles.css](styles.css) : identité marine/bleue sur fond clair, violet ponctuel, mise en page responsive et focus clavier.
-- [data.js](data.js) : jeu initial fictif et generation des créneaux marocains.
-- [store.js](store.js) : stockage JSON versionne, validation, mutations atomiques et calculs, sans DOM. Export CommonJS pour les tests et global pour le navigateur.
-- [app.js](app.js) : vues, fragments d'URL, formulaires et echappement des valeurs affichées.
-- [tests/store.test.cjs](tests/store.test.cjs) : tests natifs Node.
+- [index.html](index.html), [styles.css](styles.css) : structure, charte (§3.1, fond blanc cassé), responsive.
+- [sha256.js](sha256.js), [data.js](data.js), [store.js](store.js) : hachage, jeu initial, logique métier testable sans DOM.
+- [ui.js](ui.js), [views-public.js](views-public.js), [views-student.js](views-student.js), [views-tutor.js](views-tutor.js), [views-admin.js](views-admin.js), [app.js](app.js) : vues, routeur et gardes.
+- [robots.txt](robots.txt), [sitemap.xml](sitemap.xml) : référencement (§19).
+- [docs/COUVERTURE_CDC.md](docs/COUVERTURE_CDC.md) : traçabilité section par section.
+- [docs/DOCUMENTATION_TECHNIQUE.md](docs/DOCUMENTATION_TECHNIQUE.md) : architecture, données, sécurité, services externes (comparatif CMI/Payzone « à confirmer »), hébergement, maintenance.
+- [docs/GUIDE_UTILISATEUR.md](docs/GUIDE_UTILISATEUR.md) : procédures par profil, sauvegarde et restauration.
 
-Le cahier des charges source n'a pas été modifié. Aucune publication, branche, opération de staging ou commit n'est effectuée par l'application.
+## Limites de la simulation
 
-## Limites et confidentialite
-
-Ce prototype ne convient pas à la production. Tous les rôles sont accessibles sans sécurité ; les données ne constituent pas une preuve d'identité, un dossier scolaire ou un paiement. Les profils, avis initiaux, programmes et disponibilités sont fictifs. La mention d'une ENCG n'implique aucun partenariat ni validation officielle. Aucune promesse d'admission.
-
-La clé locale est `ontrack-demo-v1`. La suppression du profil retire ses réservations, forfaits, transactions, avis et les messages et notifications locaux ; les profils tuteurs et reglages de catalogue subsistent jusqu'au reset. En cas de données invalides, la sauvegarde existante n'est pas écrasée et la session passe en mémoire. La remise à zéro reste alors valable seulement pour la session ; effacer les données du site dans le navigateur permet de rétablir un stockage sain.
-
-Aucun paiement, e-mail, appel vidéo ni authentification réels. Aucun document, carte bancaire ou mot de passe n'est demandé. Ne saisir que des identités et messages inventés. Le stockage n'est pas synchronisé entre appareils et les onglets concurrents ne sont pas gérés comme une base transactionnelle partagée. Si tous les créneaux initiaux sont passés, ajouter des disponibilités dans l'espace tuteur ou réinitialiser.
+Aucun paiement, e-mail, visioconférence ou intégration universitaire réels ; aucune donnée bancaire saisie. Les domaines `etu.encg-<ville>.demo`, les personnes, les établissements partenaires et les programmes sont fictifs (liens « source officielle » vers `example.org`) ; aucune admission n'est promise. Les pièces jointes ne sont jamais stockées, seules leurs métadonnées. Les Study Pods ne sont pas réservables par les étudiants. L'authentification est locale : hachages, session et secret de signature sont lisibles dans le navigateur, ce qui est acceptable pour une démonstration mais pas pour la production (voir la documentation technique). La boîte mail simulée affiche les codes de vérification en clair pour l'adresse du compte connecté et les adresses saisies dans l'onglet : elle ne prouve donc pas la possession réelle de la boîte. Les comptes de démonstration utilisent des sels fixes. Les données ne sont pas partagées entre appareils. Le cahier des charges source n'est pas modifié.
 
 ## Sources des illustrations
 
-Photos Unsplash téléchargées dans assets, sans dépendance réseau a l'exécution. Leur présence n'implique aucun soutien au projet. Les portraits ne correspondent pas aux identités fictives affichées.
+Photos Unsplash téléchargées dans `assets/`, sans dépendance réseau à l'exécution ; elles ne représentent pas les identités fictives affichées.
 
 - Campus : https://unsplash.com/photos/9DaOYUYnOls (image `photo-1523240795612-9a054b0db644`).
 - Portrait Yassine : https://images.unsplash.com/photo-1500648767791-00dcc994a43e.
@@ -80,6 +66,4 @@ Photos Unsplash téléchargées dans assets, sans dépendance réseau a l'exécu
 - Portrait Adam : https://images.unsplash.com/photo-1506794778202-cad84cf45f1d.
 - Espace Study Pods illustratif : https://images.unsplash.com/photo-1497366754035-f200968a6e72.
 
-Le logo horizontal intégré à l'en-tête et au pied de page provient de [Logo-ontrack-1.jpeg](Logo-ontrack-1.jpeg). Son dessin sobre est plus lisible dans une barre de navigation que les ornements du [Logo-ontrack-2.jpeg](Logo-ontrack-2.jpeg). Le monogramme du [Logo-ontrack-3.jpeg](Logo-ontrack-3.jpeg) est utilisé comme favicon. Les PNG dérivés sont recadrés ; les trois originaux restent intacts.
-
-Les textes sont enregistrés en UTF-8 avec les accents français. Les anciens libellés du stockage local sont migrés sans effacer les réservations ni modifier les saisies libres. La clé technique reste `ontrack-demo-v1`. Les polices utilisent les ressources locales du système, sans service distant.
+Le logo de l'en-tête provient de [Logo-ontrack-1.jpeg](Logo-ontrack-1.jpeg) ; le monogramme de [Logo-ontrack-3.jpeg](Logo-ontrack-3.jpeg) sert de favicon. Les originaux restent intacts.

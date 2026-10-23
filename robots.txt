@@ -1,0 +1,17 @@
+# ONTRACK — robots.txt (§19)
+# Les espaces personnels et les données privées ne doivent pas être indexés.
+# En production, les routes par fragment (#...) sont servies comme chemins lisibles (voir docs/DOCUMENTATION_TECHNIQUE.md).
+User-agent: *
+Allow: /
+Disallow: /etudiant/
+Disallow: /tuteur/
+Disallow: /admin/
+Disallow: /reserver
+Disallow: /paiement/
+Disallow: /confirmation/
+Disallow: /connexion
+Disallow: /verification
+Disallow: /mot-de-passe-oublie
+Disallow: /boite-mail
+
+Sitemap: https://ontrack.example.org/sitemap.xml
