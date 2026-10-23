@@ -8,6 +8,8 @@ Démonstration interactive et complète du cahier des charges ONTRACK (plateform
 
 Ouvrir directement [index.html](index.html) dans un navigateur récent (URL `file:` acceptée). JavaScript doit être activé. Les données sont conservées dans `localStorage` (clé `ontrack-demo-v2`) ; si le stockage est indisponible ou corrompu, un bandeau signale le mode mémoire. Un ancien état v1 est réinitialisé automatiquement.
 
+Version en ligne : https://mmouakatperso.github.io/ontrack/. Chaque push sur `main` lance les tests puis publie le site via [.github/workflows/pages.yml](.github/workflows/pages.yml) ; seuls `index.html`, `styles.css`, les scripts, `assets/`, `robots.txt` et `sitemap.xml` sont publiés. Les données restent propres à chaque navigateur.
+
 Comptes de démonstration (connexion rapide disponible sur la page **Connexion**) :
 
 | Profil | Adresse | Mot de passe |
