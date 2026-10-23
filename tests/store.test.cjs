@@ -328,12 +328,13 @@ test('forfaits : débit unique, épuisement, expiration, validité, centimes et 
 });
 
 test('Stay ONTRACK : mois calendaire marocain, borné en fin de mois', () => {
+  // Maroc en UTC+0 permanent depuis le 2026-09-20 (tzdata 2026c, Node 22.23.3 ou plus récent).
   const { store, pay } = setup('2027-01-31T08:00:00Z');
   const booking = pay({ offerId: 'stay' });
-  assert.equal(store.get().packages.find(item => item.id === booking.packageId).expires, '2027-02-28T09:00:00.000Z');
-  const late = setup('2026-10-30T23:30:00Z');
+  assert.equal(store.get().packages.find(item => item.id === booking.packageId).expires, '2027-02-28T08:00:00.000Z');
+  const late = setup('2026-10-31T00:30:00Z');
   const second = late.pay({ offerId: 'stay' });
-  assert.equal(late.store.get().packages.find(item => item.id === second.packageId).expires, '2026-11-29T23:30:00.000Z');
+  assert.equal(late.store.get().packages.find(item => item.id === second.packageId).expires, '2026-11-30T00:30:00.000Z');
 });
 
 test('tarifs historiques : une modification ne change que les nouvelles réservations', () => {
@@ -668,9 +669,9 @@ test('orientation : date limite dépassée (fin de journée au Maroc) jamais él
   as(SALMA);
   store.saveOrientationProfile({ encg: 'Casablanca', level: 'S6', track: 'Gestion', average: 15, validated: '', languages: [{ language: 'Français', level: 'C1' }], countries: [], programType: 'Indifférent' });
   assert.equal(store.recommendations('s1').find(item => item.programId === 'p1').eligible, true);
-  advance('2026-10-24T22:30:00Z');
-  assert.equal(store.recommendations('s1').find(item => item.programId === 'p1').eligible, true, '23:30 au Maroc : encore ouvert');
   advance('2026-10-24T23:30:00Z');
+  assert.equal(store.recommendations('s1').find(item => item.programId === 'p1').eligible, true, '23:30 au Maroc : encore ouvert');
+  advance('2026-10-25T00:30:00Z');
   const late = store.recommendations('s1').find(item => item.programId === 'p1');
   assert.equal(late.deadlinePassed, true);
   assert.equal(late.eligible, false);

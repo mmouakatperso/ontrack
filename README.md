@@ -42,7 +42,7 @@ node --test tests/store.test.cjs tests/views.test.cjs
 for f in *.js; do node --check "$f"; done
 ```
 
-Node.js 22 ou plus récent, uniquement pour les tests. `store.test.cjs` couvre la matrice de la spécification (inscription, blocage, retenue de créneau, paiement signé et idempotent, échec, annulation, compte rendu, avis, rôles) ainsi que les cas historiques (forfaits, centimes, fin de mois, chevauchements, repli mémoire). `views.test.cjs` rend chaque route pour chaque rôle, vérifie gardes (`O.access`), `noindex`, échappement et branchement des formulaires, et pilote les vrais gestionnaires (assistant, passerelle, compte rendu). Les contrôles navigateur (390/1440 px, clavier) sont manuels et ne font pas partie du dépôt.
+Node.js 22.23.3 ou plus récent (base horaire tzdata 2026c : Maroc en UTC+0 permanent depuis le 20 septembre 2026), uniquement pour les tests. `store.test.cjs` couvre la matrice de la spécification (inscription, blocage, retenue de créneau, paiement signé et idempotent, échec, annulation, compte rendu, avis, rôles) ainsi que les cas historiques (forfaits, centimes, fin de mois, chevauchements, repli mémoire). `views.test.cjs` rend chaque route pour chaque rôle, vérifie gardes (`O.access`), `noindex`, échappement et branchement des formulaires, et pilote les vrais gestionnaires (assistant, passerelle, compte rendu). Les contrôles navigateur (390/1440 px, clavier) sont manuels et ne font pas partie du dépôt.
 
 ## Organisation
 
