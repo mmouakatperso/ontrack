@@ -12,6 +12,8 @@
   <script defer src="sha256.js"></script>
   <script defer src="data.js"></script>
   <script defer src="store.js"></script>
+  <script defer src="i18n.js"></script>
+  <script defer src="i18n-en.js"></script>
   <script defer src="ui.js"></script>
   <script defer src="views-public.js"></script>
   <script defer src="views-student.js"></script>
@@ -20,29 +22,30 @@
   <script defer src="app.js"></script>
 </head>
 <body>
-  <a class="skip" href="#main">Aller au contenu</a>
-  <div class="demo-bar" role="note"><span class="demo-dot" aria-hidden="true"></span> Démonstration <span class="demo-detail">Données fictives · paiements, e-mails et visioconférence simulés</span></div>
+  <a class="skip" href="#main" data-i18n>Aller au contenu</a>
+  <div class="demo-bar" role="note"><span class="demo-dot" aria-hidden="true"></span> <span data-i18n>Démonstration</span> <span class="demo-detail" data-i18n>Données fictives · paiements, e-mails et visioconférence simulés</span></div>
   <header class="header">
-    <a href="#accueil" class="brand" aria-label="ONTRACK, accueil"><img src="assets/logo-ontrack.png" width="915" height="285" alt="ONTRACK — Your Study, Our Priority."></a>
-    <nav aria-label="Navigation principale" id="nav">
-      <a href="#matieres" data-nav="matieres">Matières</a>
-      <a href="#catalogue" data-nav="catalogue">Tuteurs</a>
-      <a href="#accueil/offres" data-nav="tarifs" class="hide-small">Tarifs</a>
-      <a href="#orientation" data-nav="orientation">Orientation</a>
-      <a href="#pods" data-nav="pods">Study Pods <span class="tiny">Bientôt</span></a>
+    <a href="#accueil" class="brand" aria-label="ONTRACK, accueil" data-i18n-attrs="aria-label"><img src="assets/logo-ontrack.png" width="915" height="285" alt="ONTRACK — Your Study, Our Priority."></a>
+    <nav aria-label="Navigation principale" data-i18n-attrs="aria-label" id="nav">
+      <a href="#matieres" data-nav="matieres" data-i18n>Matières</a>
+      <a href="#catalogue" data-nav="catalogue" data-i18n>Tuteurs</a>
+      <a href="#accueil/offres" data-nav="tarifs" class="hide-small" data-i18n>Tarifs</a>
+      <a href="#orientation" data-nav="orientation" data-i18n>Orientation</a>
+      <a href="#pods" data-nav="pods">Study Pods <span class="tiny" data-i18n>Bientôt</span></a>
+      <span class="lang-switch" role="group" aria-label="Langue" data-i18n-attrs="aria-label"><button type="button" data-action="lang" data-lang="fr" lang="fr" title="Français" aria-label="Français">FR</button><button type="button" data-action="lang" data-lang="en" lang="en" title="English" aria-label="English">EN</button></span>
     </nav>
-    <div class="account" id="account" role="group" aria-label="Compte"></div>
+    <div class="account" id="account" role="group" aria-label="Compte" data-i18n-attrs="aria-label"></div>
   </header>
   <div id="storage-warning" role="status"></div>
   <div id="feedback" role="status" aria-live="polite" tabindex="-1"></div>
   <main id="main" tabindex="-1"></main>
   <footer>
-    <div class="footer-brand"><a class="brand" href="#accueil"><img src="assets/logo-ontrack.png" width="915" height="285" alt="ONTRACK — Your Study, Our Priority."></a><p>Tutorat universitaire et orientation académique pour les 12 ENCG du Maroc.</p><p>contact@ontrack.example.org (fictif) · Lun.–ven., 9 h – 18 h</p></div>
-    <nav aria-label="Plateforme"><h2>Plateforme</h2><a href="#presentation">Présentation</a><a href="#matieres">Catalogue des matières</a><a href="#catalogue">Tuteurs</a><a href="#reserver">Réserver une séance</a><a href="#orientation">Orientation</a><a href="#pods">Study Pods</a></nav>
-    <nav aria-label="Comptes"><h2>Comptes</h2><a href="#connexion">Connexion</a><a href="#inscription">Inscription étudiant</a><a href="#inscription-tuteur">Devenir tuteur</a><a href="#mot-de-passe-oublie">Mot de passe oublié</a><a href="#contact">Contact et assistance</a></nav>
-    <nav aria-label="Informations légales"><h2>Informations</h2><a href="#cgu">Conditions d'utilisation</a><a href="#confidentialite">Politique de confidentialité</a><a href="#mentions">Mentions légales</a><a href="#boite-mail">Boîte mail simulée</a><button type="button" data-action="reset" data-confirm="Remplacer toutes les données locales par le scénario initial ?" class="text-button">Réinitialiser la démo</button></nav>
-    <p class="footer-note">ONTRACK — Your Study, Our Priority. Projet académique de démonstration : aucun paiement, e-mail ni partenariat réel. Données conservées sur cet appareil uniquement.</p>
+    <div class="footer-brand"><a class="brand" href="#accueil"><img src="assets/logo-ontrack.png" width="915" height="285" alt="ONTRACK — Your Study, Our Priority."></a><p data-i18n>Tutorat universitaire et orientation académique pour les 12 ENCG du Maroc.</p><p data-i18n>contact@ontrack.example.org (fictif) · Lun.–ven., 9 h – 18 h</p></div>
+    <nav aria-label="Plateforme" data-i18n-attrs="aria-label"><h2 data-i18n>Plateforme</h2><a href="#presentation" data-i18n>Présentation</a><a href="#matieres" data-i18n>Catalogue des matières</a><a href="#catalogue" data-i18n>Tuteurs</a><a href="#reserver" data-i18n>Réserver une séance</a><a href="#orientation" data-i18n>Orientation</a><a href="#pods">Study Pods</a></nav>
+    <nav aria-label="Comptes" data-i18n-attrs="aria-label"><h2 data-i18n>Comptes</h2><a href="#connexion" data-i18n>Connexion</a><a href="#inscription" data-i18n>Inscription étudiant</a><a href="#inscription-tuteur" data-i18n>Devenir tuteur</a><a href="#mot-de-passe-oublie" data-i18n>Mot de passe oublié</a><a href="#contact" data-i18n>Contact et assistance</a></nav>
+    <nav aria-label="Informations légales" data-i18n-attrs="aria-label"><h2 data-i18n>Informations</h2><a href="#cgu" data-i18n>Conditions d'utilisation</a><a href="#confidentialite" data-i18n>Politique de confidentialité</a><a href="#mentions" data-i18n>Mentions légales</a><a href="#boite-mail" data-i18n>Boîte mail simulée</a><button type="button" data-action="reset" data-confirm="Remplacer toutes les données locales par le scénario initial ?" data-i18n-attrs="data-confirm" class="text-button" data-i18n>Réinitialiser la démo</button></nav>
+    <p class="footer-note" data-i18n>ONTRACK — Your Study, Our Priority. Projet académique de démonstration : aucun paiement, e-mail ni partenariat réel. Données conservées sur cet appareil uniquement.</p>
   </footer>
-  <noscript>Cette démonstration nécessite JavaScript. Aucune connexion réseau n'est requise.</noscript>
+  <noscript>Cette démonstration nécessite JavaScript. Aucune connexion réseau n'est requise. — This demo requires JavaScript. No network connection is needed.</noscript>
 </body>
 </html>

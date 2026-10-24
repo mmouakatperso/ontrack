@@ -38,16 +38,17 @@ Comptes de démonstration (connexion rapide disponible sur la page **Connexion**
 ## Vérification
 
 ```sh
-node --test tests/store.test.cjs tests/views.test.cjs
+node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.test.cjs
 for f in *.js; do node --check "$f"; done
 ```
 
-Node.js 22.23.3 ou plus récent (base horaire tzdata 2026c : Maroc en UTC+0 permanent depuis le 20 septembre 2026), uniquement pour les tests. `store.test.cjs` couvre la matrice de la spécification (inscription, blocage, retenue de créneau, paiement signé et idempotent, échec, annulation, compte rendu, avis, rôles) ainsi que les cas historiques (forfaits, centimes, fin de mois, chevauchements, repli mémoire). `views.test.cjs` rend chaque route pour chaque rôle, vérifie gardes (`O.access`), `noindex`, échappement et branchement des formulaires, et pilote les vrais gestionnaires (assistant, passerelle, compte rendu). Les contrôles navigateur (390/1440 px, clavier) sont manuels et ne font pas partie du dépôt.
+Node.js 22.23.3 ou plus récent (base horaire tzdata 2026c : Maroc en UTC+0 permanent depuis le 20 septembre 2026), uniquement pour les tests. `store.test.cjs` couvre la matrice de la spécification (inscription, blocage, retenue de créneau, paiement signé et idempotent, échec, annulation, compte rendu, avis, rôles) ainsi que les cas historiques (forfaits, centimes, fin de mois, chevauchements, repli mémoire). `views.test.cjs` rend chaque route pour chaque rôle, vérifie gardes (`O.access`), `noindex`, échappement et branchement des formulaires, et pilote les vrais gestionnaires (assistant, passerelle, compte rendu). `i18n.test.cjs` vérifie que toute l'interface existe en anglais. Les contrôles navigateur (390/1440 px, clavier) sont manuels et ne font pas partie du dépôt.
 
 ## Organisation
 
 - [index.html](index.html), [styles.css](styles.css) : structure, charte (§3.1, fond blanc cassé), responsive.
 - [sha256.js](sha256.js), [data.js](data.js), [store.js](store.js) : hachage, jeu initial, logique métier testable sans DOM.
+- [i18n.js](i18n.js), [i18n-en.js](i18n-en.js) : interface bilingue français / anglais (sélecteur FR | EN du menu) ; les données ne sont pas traduites.
 - [ui.js](ui.js), [views-public.js](views-public.js), [views-student.js](views-student.js), [views-tutor.js](views-tutor.js), [views-admin.js](views-admin.js), [app.js](app.js) : vues, routeur et gardes.
 - [robots.txt](robots.txt), [sitemap.xml](sitemap.xml) : référencement (§19).
 - [docs/COUVERTURE_CDC.md](docs/COUVERTURE_CDC.md) : traçabilité section par section.

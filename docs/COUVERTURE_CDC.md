@@ -16,7 +16,7 @@ Les fonctions citées sont celles de l'objet retourné par `createStore()` dans 
 
 ### Tests cités
 
-Commande : `node --test tests/store.test.cjs tests/views.test.cjs`.
+Commande : `node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.test.cjs`.
 
 | Réf. | Fichier | Nom exact du test |
 |---|---|---|

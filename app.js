@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const O = window.Ontrack;
-  const { escape, head } = O.ui;
+  const { escape, head, t, msg } = O.ui;
   let storage;
   try { storage = window.localStorage; } catch (error) { storage = null; }
   const store = OntrackStore.createStore(storage);
@@ -23,7 +23,7 @@
   function feedback(message, error) {
     feedbackRoute = location.hash;
     const element = document.getElementById('feedback');
-    element.textContent = message || '';
+    element.textContent = msg(message) || '';
     element.className = error ? 'error' : '';
     if (message) element.focus();
   }
@@ -32,12 +32,27 @@
     if (!element) { element = document.createElement('meta'); element.setAttribute('name', name); document.head.appendChild(element); }
     element.setAttribute('content', content);
   }
+  // Libellés statiques d'index.html : la clé française est relevée au premier passage.
+  const originals = new WeakMap();
+  function applyLanguage() {
+    const lang = O.i18n.get();
+    document.documentElement.lang = lang;
+    for (const element of document.querySelectorAll('[data-i18n]')) {
+      if (!element.dataset.i18n) element.dataset.i18n = element.textContent.trim();
+      element.textContent = t(element.dataset.i18n);
+    }
+    for (const element of document.querySelectorAll('[data-i18n-attrs]')) {
+      if (!originals.has(element)) originals.set(element, Object.fromEntries(element.dataset.i18nAttrs.split(/\s+/).map(name => [name, element.getAttribute(name)])));
+      for (const [name, key] of Object.entries(originals.get(element))) element.setAttribute(name, t(key));
+    }
+    for (const button of document.querySelectorAll('[data-lang]')) button.setAttribute('aria-pressed', String(button.dataset.lang === lang));
+  }
   function account(user) {
     const box = document.getElementById('account');
     const unread = user ? store.get().notifications.filter(item => item.userId === user.id && !item.read).length : 0;
     box.innerHTML = user
-      ? `<a class="account-link" href="${spaces[user.role]}"><span class="account-name">${escape(user.name.split(' ')[0])}</span><span class="badge ${user.role === 'admin' ? 'violet' : ''}">${escape(roleLabels[user.role])}</span>${unread ? `<span class="count" aria-label="${unread} notification(s) non lue(s)">${unread}</span>` : ''}</a><button type="button" class="button small secondary" data-action="logout">Déconnexion</button>`
-      : '<a class="button small secondary" href="#connexion">Connexion</a><a class="button small" href="#inscription">Inscription</a>';
+      ? `<a class="account-link" href="${spaces[user.role]}"><span class="account-name">${escape(user.name.split(' ')[0])}</span><span class="badge ${user.role === 'admin' ? 'violet' : ''}">${escape(t(roleLabels[user.role]))}</span>${unread ? `<span class="count" aria-label="${escape(t('{count} notification(s) non lue(s)', { count: unread }))}">${unread}</span>` : ''}</a><button type="button" class="button small secondary" data-action="logout">${escape(t('Déconnexion'))}</button>`
+      : `<a class="button small secondary" href="#connexion">${escape(t('Connexion'))}</a><a class="button small" href="#inscription">${escape(t('Inscription'))}</a>`;
   }
   function render() {
     store.tick();
@@ -46,7 +61,7 @@
     const name = page || 'accueil';
     const definition = O.routes[name];
     const user = store.currentUser();
-    document.getElementById('storage-warning').textContent = store.warning();
+    document.getElementById('storage-warning').textContent = msg(store.warning());
     account(user);
     const access = O.access(definition, user);
     if (access.redirect) {
@@ -59,12 +74,12 @@
     let html;
     if (definition) {
       try { html = definition.render(ctx); }
-      catch (error) { html = head('Erreur', 'Affichage impossible.', error.message) + '<div class="wrap section"><a class="button" href="#accueil">Retour à l\'accueil</a></div>'; console.error(error); }
-    } else html = head('Navigation', 'Cette page n\'existe pas.', 'Retrouvez les espaces ONTRACK depuis le menu.') + '<div class="wrap section"><a class="button" href="#accueil">Retour à l\'accueil</a></div>';
+      catch (error) { html = head(t('Erreur'), t('Affichage impossible.'), msg(error.message)) + `<div class="wrap section"><a class="button" href="#accueil">${escape(t('Retour à l\'accueil'))}</a></div>`; console.error(error); }
+    } else html = head(t('Navigation'), t('Cette page n\'existe pas.'), t('Retrouvez les espaces ONTRACK depuis le menu.')) + `<div class="wrap section"><a class="button" href="#accueil">${escape(t('Retour à l\'accueil'))}</a></div>`;
     main.innerHTML = html;
-    const title = definition ? (typeof definition.title === 'function' ? definition.title(ctx) : definition.title) : 'Page introuvable';
+    const title = definition ? (typeof definition.title === 'function' ? definition.title(ctx) : definition.title) : t('Page introuvable');
     document.title = `${title} | ONTRACK`;
-    setMeta('description', definition ? (typeof definition.description === 'function' ? definition.description(ctx) : definition.description) : 'Page introuvable.');
+    setMeta('description', definition ? (typeof definition.description === 'function' ? definition.description(ctx) : definition.description) : t('Page introuvable.'));
     setMeta('robots', access.robots);
     const navKey = name === 'accueil' && params[0] === 'offres' ? 'tarifs' : name;
     for (const link of document.querySelectorAll('[data-nav]')) { if (link.dataset.nav === navKey) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); }
@@ -77,11 +92,11 @@
     if (value.go !== undefined) {
       const target = `#${value.go}`;
       if (location.hash === target) { render(); feedback(value.message, value.error); }
-      else { feedbackRoute = target; location.hash = target; const element = document.getElementById('feedback'); element.textContent = value.message || ''; element.className = value.error ? 'error' : ''; }
+      else { feedbackRoute = target; location.hash = target; const element = document.getElementById('feedback'); element.textContent = msg(value.message) || ''; element.className = value.error ? 'error' : ''; }
       return;
     }
     render();
-    feedback(value.message || 'Modification enregistrée.', value.error);
+    feedback(value.message || t('Modification enregistrée.'), value.error);
   }
   document.addEventListener('submit', event => {
     const form = event.target;
@@ -111,13 +126,18 @@
     catch (error) { feedback(error.message, true); }
   });
   O.done = outcome;
-  O.action('logout', () => { store.logout(); O.clearMemory(); return { go: 'accueil', message: 'Vous êtes déconnecté. La session a été fermée sur cet appareil.' }; });
+  O.action('logout', () => { store.logout(); O.clearMemory(); return { go: 'accueil', message: t('Vous êtes déconnecté. La session a été fermée sur cet appareil.') }; });
   O.action('reset', () => {
     store.reset(true);
     O.clearMemory();
-    return { go: 'accueil', message: 'Scénario initial restauré.' };
+    return { go: 'accueil', message: t('Scénario initial restauré.') };
   });
+  O.action('lang', (ctx, dataset) => { O.i18n.set(dataset.lang); applyLanguage(); return t('Site affiché en français.'); });
   window.addEventListener('hashchange', () => { if (location.hash !== feedbackRoute) feedback(''); render(); });
-  window.addEventListener('storage', event => { if (event.key === OntrackStore.KEY) feedback('Les données ont changé dans un autre onglet. Rechargez cette page avant de poursuivre.', true); });
+  window.addEventListener('storage', event => {
+    if (event.key === OntrackStore.KEY) feedback(t('Les données ont changé dans un autre onglet. Rechargez cette page avant de poursuivre.'), true);
+    if (event.key === O.i18n.STORAGE_KEY && event.newValue && event.newValue !== O.i18n.get()) { O.i18n.set(event.newValue); applyLanguage(); render(); }
+  });
+  applyLanguage();
   render();
 }());

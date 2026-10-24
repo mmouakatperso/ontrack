@@ -24,6 +24,8 @@ Aucune dépendance, aucune compilation, aucun appel réseau. Node.js 22 sert uni
 | `sha256.js` | SHA-256 synchrone (UMD) ; utilisé par le navigateur et par Node |
 | `data.js` | Jeu initial v2 (`seed(now)`), conversion heure marocaine (`moroccoInstant`, `moroccoDay`), constantes, comptes de démonstration |
 | `store.js` | Toute la logique métier, sans DOM : `createStore(storage, clock)` |
+| `i18n.js` | Langue de l'interface (français par défaut, anglais) : `t('Libellé {param}', { param })`, traduction des messages du store à l'affichage (`message`), choix mémorisé dans `localStorage` (clé `ontrack-lang`), formats de date et de nombre selon la langue |
+| `i18n-en.js` | Dictionnaire anglais : clé = libellé français exact. Seuls les libellés de l'interface sont traduits, jamais les données |
 | `ui.js` | Registre des routes et des gestionnaires (`Ontrack.route/form/action/change`) et aides de rendu (`escape`, `money`, `date`, `select`, `field`, `head`…) |
 | `views-public.js` | Pages publiques, authentification, catalogue, orientation, Study Pods, pages légales, boîte mail |
 | `views-student.js` | Assistant de réservation, paiement, confirmation, espace étudiant |
@@ -33,8 +35,13 @@ Aucune dépendance, aucune compilation, aucun appel réseau. Node.js 22 sert uni
 | `robots.txt`, `sitemap.xml` | Référencement (§19) |
 | `tests/store.test.cjs` | Tests métier (matrice de la spécification) |
 | `tests/views.test.cjs` | Rendu de toutes les routes sans navigateur, gardes, échappement, branchement des gestionnaires |
+| `tests/i18n.test.cjs` | Moteur de traduction, intégrité du dictionnaire anglais, couverture des clés du code et des messages du store, rendu anglais de toutes les routes sans libellé manquant |
 
-Ordre de chargement : `sha256.js → data.js → store.js → ui.js → views-*.js → app.js` (attribut `defer`).
+Ordre de chargement : `sha256.js → data.js → store.js → i18n.js → i18n-en.js → ui.js → views-*.js → app.js` (attribut `defer`).
+
+### Langues de l'interface
+
+Le sélecteur FR | EN du menu principal bascule toute l'interface (menus, libellés, messages, pages statiques, titres et descriptions) ; le choix est conservé sur l'appareil et synchronisé entre onglets. Les données (matières, chapitres, offres, profils, programmes, valeurs enregistrées, e-mails et notifications déjà émis) restent dans leur langue d'origine. Pour ajouter un libellé : l'écrire en français dans `t('…')` (guillemets simples, `{paramètres}` nommés) et ajouter sa traduction dans `i18n-en.js` ; `tests/i18n.test.cjs` échoue sinon.
 
 ### Flux d'une interaction
 
@@ -175,9 +182,10 @@ La démonstration peut, en l'état, être déposée sur tout hébergeur statique
 ## 11. Tests
 
 ```sh
-node --test tests/store.test.cjs tests/views.test.cjs
+node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.test.cjs
 ```
 
 - `store.test.cjs` : SHA-256, inscription et domaines, blocage de connexion, sessions et rôles, réinitialisation, retenue de créneau et expiration, refus (pris, passé, bloqué, prioritaire, tuteur en attente, pièce jointe), créneau prioritaire Stay, notification signée (rejeu, signature, montant), échec et nouvel essai, annulation et absence, reprogrammation et chevauchements, compte rendu et progression, avis et modération, forfaits (centimes, épuisement, validité, résiliation, expiration), mois Stay, tarifs historiques, validation d'un tuteur nouvellement inscrit, rémunération et suivi financier, stockage et repli mémoire, persistance, suppression de compte, administration et export/import, rappels et e-mails du §12, orientation, Study Pods et QR, disponibilités, fichiers et SEO.
 - `views.test.cjs` : rendu de chaque route pour chaque rôle, gestionnaires branchés pour chaque formulaire et action, absence de `undefined`/`NaN`, gardes et `noindex`, parcours §10.1 étape par étape, échappement des saisies.
+- `i18n.test.cjs` : traduction à la demande, messages composés du store, paramètres et balises identiques entre français et anglais, chaque clé `t('…')` et chaque message du store traduits, rendu anglais de chaque route et de chaque parcours sans libellé manquant, données non traduites.
 - Contrôles manuels complémentaires (non inclus dans le dépôt, à rejouer à la main ou avec un outil comme Chrome DevTools/Playwright ; réalisés une fois pendant le développement à 390 et 1440 px) : parcours §10.1 avec refus puis succès, blocage de connexion, inscription et vérification par la boîte mail, validation d'un tuteur, compte rendu et progression, absence de débordement à 390 et 1440 px sur toutes les routes, aucune erreur JavaScript.

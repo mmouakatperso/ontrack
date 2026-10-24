@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 globalThis.OntrackSha256 = require('../sha256.js');
 globalThis.OntrackData = require('../data.js');
 const { createStore } = require('../store.js');
-for (const file of ['ui.js', 'views-public.js', 'views-student.js', 'views-tutor.js', 'views-admin.js']) require(`../${file}`);
+for (const file of ['i18n.js', 'i18n-en.js', 'ui.js', 'views-public.js', 'views-student.js', 'views-tutor.js', 'views-admin.js']) require(`../${file}`);
 const O = globalThis.Ontrack;
 
 const ACCOUNTS = { student: ['salma.benali@etu.encg-casablanca.demo', 'Demo2026!'], subscriber: ['omar.tazi@etu.encg-settat.demo', 'Demo2026!'], tutor: ['yassine.amrani@etu.encg-casablanca.demo', 'Demo2026!'], pending: ['adam.idrissi@etu.encg-tanger.demo', 'Demo2026!'], admin: ['admin@ontrack.demo', 'Admin2026!'] };
