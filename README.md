@@ -6,7 +6,7 @@ Démonstration interactive et complète du cahier des charges ONTRACK (plateform
 
 ## Lancement
 
-Ouvrir directement [index.html](index.html) dans un navigateur récent (URL `file:` acceptée). JavaScript doit être activé. Les données sont conservées dans `localStorage` (clé `ontrack-demo-v2`) ; si le stockage est indisponible ou corrompu, un bandeau signale le mode mémoire. Un ancien état v1 est réinitialisé automatiquement.
+Ouvrir directement [index.html](index.html) dans un navigateur récent (URL `file:` acceptée). JavaScript doit être activé. Les données sont conservées dans `localStorage` (clé `ontrack-demo-v3`) ; si le stockage est indisponible ou corrompu, un bandeau signale le mode mémoire. Un ancien état v1 ou v2 est réinitialisé automatiquement.
 
 Version en ligne : https://mmouakatperso.github.io/ontrack/. Chaque push sur `main` lance les tests puis publie le site via [.github/workflows/pages.yml](.github/workflows/pages.yml) ; seuls `index.html`, `styles.css`, les scripts, `assets/`, `robots.txt` et `sitemap.xml` sont publiés. Les données restent propres à chaque navigateur.
 
@@ -31,9 +31,9 @@ Comptes de démonstration (connexion rapide disponible sur la page **Connexion**
 6. **Tuteur** (connexion rapide Yassine) : notification de nouvelle réservation, informations de séance, **Simuler la fin de séance**, rédiger le compte rendu en six rubriques (matière et chapitres avec statut, notions, exercices, difficultés, points à réviser, recommandations). Retour Salma : **Progression** (pourcentage par matière avec la méthode de calcul) et **Comptes rendus** ; publier un avis.
 7. **Forfaits** (Omar, abonné Stay) : Mes forfaits (séances réalisées, planifiées, restantes), **Planifier une séance** avec un crédit (aucun paiement), réservation d'un créneau prioritaire ; résiliation.
 8. **Administration** : **Tuteurs** → valider Adam ; il apparaît au **catalogue** et ses créneaux deviennent réservables. **Tarifs** : modifier Quick Help (les achats passés gardent leur prix). **Politique**, **Domaines e-mail**, **Matières & niveaux**. **Paiements** : tester « Rejouer la notification » et « Notification mal signée » (sans effet). **Rémunérations** : passer en phase rémunérée, clôturer une séance, enregistrer un versement. **Modération** : un avis signalé par le tuteur est masqué et sort de la moyenne. **Vue d'ensemble** : suivi financier.
-9. **Orientation** (Salma) : profil, recommandations critère par critère sans promesse d'admission, demande d'entretien (e-mail de confirmation) ; l'administrateur la planifie.
+9. **Orientation** (Salma, S6 Gestion) : les 9 destinations communiquées par l'ENCG, avec leurs places et le lien officiel ; profil (filières filtrées selon le niveau), recommandations critère par critère, critères non communiqués marqués « ? » et « À confirmer auprès de l'ENCG », sans promesse d'admission ; demande d'entretien (e-mail de confirmation) ; l'administrateur la planifie et peut compléter une destination dans **Orientation**.
 10. **Study Pods** : page Coming Soon, inscription aux actualités ; côté administration, prototype QR à usage unique (seconde validation refusée).
-11. **Sauvegarde** : export JSON, import, puis suppression de compte depuis Mon profil (mot de passe requis).
+11. **Sauvegarde** : export JSON, import, puis suppression de compte depuis Mon profil (mot de passe requis). Seules les sauvegardes v3 s'importent : un fichier v1 ou v2 est refusé (« Version locale incompatible »).
 
 ## Vérification
 
@@ -57,7 +57,7 @@ Node.js 22.23.3 ou plus récent (base horaire tzdata 2026c : Maroc en UTC+0 perm
 
 ## Limites de la simulation
 
-Aucun paiement, e-mail, visioconférence ou intégration universitaire réels ; aucune donnée bancaire saisie. Les domaines `etu.encg-<ville>.demo`, les personnes, les établissements partenaires et les programmes sont fictifs (liens « source officielle » vers `example.org`) ; aucune admission n'est promise. Les pièces jointes ne sont jamais stockées, seules leurs métadonnées. Les Study Pods ne sont pas réservables par les étudiants. L'authentification est locale : hachages, session et secret de signature sont lisibles dans le navigateur, ce qui est acceptable pour une démonstration mais pas pour la production (voir la documentation technique). La boîte mail simulée affiche les codes de vérification en clair pour l'adresse du compte connecté et les adresses saisies dans l'onglet : elle ne prouve donc pas la possession réelle de la boîte. Les comptes de démonstration utilisent des sels fixes. Les données ne sont pas partagées entre appareils. Le cahier des charges source n'est pas modifié.
+Aucun paiement, e-mail, visioconférence ou intégration universitaire réels ; aucune donnée bancaire saisie. Les domaines `etu.encg-<ville>.demo` et les personnes sont fictifs. Les destinations d'orientation proviennent de la liste communiquée par l'ENCG (2025-2026) ; les critères d'admission non communiqués sont affichés « à confirmer », jamais inventés, et aucune admission n'est promise. Les filières suivent les plannings 2025-2026 de l'ENCG Casablanca (l'offre peut varier selon l'ENCG ; intitulés développés des sigles à confirmer). Les pièces jointes ne sont jamais stockées, seules leurs métadonnées. Les Study Pods ne sont pas réservables par les étudiants. L'authentification est locale : hachages, session et secret de signature sont lisibles dans le navigateur, ce qui est acceptable pour une démonstration mais pas pour la production (voir la documentation technique). La boîte mail simulée affiche les codes de vérification en clair pour l'adresse du compte connecté et les adresses saisies dans l'onglet : elle ne prouve donc pas la possession réelle de la boîte. Les comptes de démonstration utilisent des sels fixes. Les données ne sont pas partagées entre appareils. Le cahier des charges source n'est pas modifié.
 
 ## Sources des illustrations
 

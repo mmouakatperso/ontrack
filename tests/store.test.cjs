@@ -48,7 +48,7 @@ test('SHA-256 synchrone conforme à Node crypto, y compris UTF-8 et frontières 
 test('inscription : domaine conforme → compte non vérifié, code dans la boîte mail ; domaine refusé', () => {
   const { store, emails } = setup();
   store.logout();
-  const base = { name: 'Nadia Alaoui', encg: 'Agadir', level: 'S2', track: 'Gestion', password: 'Motdepasse1', consent: true };
+  const base = { name: 'Nadia Alaoui', encg: 'Agadir', level: 'S2', track: 'Tronc commun', password: 'Motdepasse1', consent: true };
   assert.throws(() => store.register({ ...base, email: 'nadia@gmail.com' }), /Domaine non autorisé/);
   assert.throws(() => store.register({ ...base, email: 'nadia@etu.encg-settat.demo' }), /Domaine non autorisé/);
   assert.throws(() => store.register({ ...base, email: 'nadia@etu.encg-agadir.demo', password: 'court' }), /8 caractères/);
@@ -397,15 +397,19 @@ test('rémunération : 0 DH en phase volontaire, tarif §9.2 figé au compte ren
   assert.equal(finance.kept, Math.round((finance.revenue - finance.refunded - finance.fees - finance.tutorDue - finance.tutorPaid) * 100) / 100);
 });
 
-test('stockage : clé v2, ancien état v1 réinitialisé, repli mémoire si indisponible ou corrompu', () => {
-  assert.equal(KEY, 'ontrack-demo-v2');
+test('stockage : clé v3, anciens états v1 et v2 remplacés par le seed v3, repli mémoire si indisponible ou corrompu', () => {
+  assert.equal(KEY, 'ontrack-demo-v3');
   const legacy = memoryStorage();
   legacy.setItem('ontrack-demo-v1', JSON.stringify({ version: 1, student: { name: 'Ancien' } }));
+  legacy.setItem('ontrack-demo-v2', JSON.stringify({ version: 2, programs: [{ id: 'p1', source: 'https://example.org/programmes/p1' }] }));
   const fresh = createStore(legacy);
   assert.equal(fresh.warning(), '');
-  assert.equal(fresh.get().version, 2);
+  assert.equal(fresh.get().version, 3);
+  assert.equal(fresh.get().programs.length, 9, 'seed v3 chargé');
+  assert.equal(JSON.parse(legacy.getItem('ontrack-demo-v3')).version, 3);
   assert.equal(legacy.getItem('ontrack-demo-v1'), null);
-  for (const storage of [null, { getItem: () => '{', setItem() {} }, { getItem: () => JSON.stringify({ version: 1 }), setItem() {} }, { getItem: () => null, setItem() { throw Error('quota'); } }]) {
+  assert.equal(legacy.getItem('ontrack-demo-v2'), null, 'clé v2 supprimée');
+  for (const storage of [null, { getItem: () => '{', setItem() {} }, { getItem: () => JSON.stringify({ version: 1 }), setItem() {} }, { getItem: () => JSON.stringify({ version: 2 }), setItem() {} }, { getItem: () => null, setItem() { throw Error('quota'); } }]) {
     const store = createStore(storage);
     assert.match(store.warning(), /mémoire/);
     assert.equal(store.login(ADMIN, 'Admin2026!').ok, true);
@@ -413,7 +417,7 @@ test('stockage : clé v2, ancien état v1 réinitialisé, repli mémoire si indi
     assert.equal(store.get().offers[0].price, 60);
   }
   const { store } = setup();
-  for (const corrupt of [state => { state.users[0].role = 'root'; }, state => { state.tutors[0].photo = 'https://example.com/x.jpg'; }, state => { state.notifications.push({}); }, state => { state.programs[0].source = 'https://vraie-universite.ma'; }, state => { state.offers[1].id = 'quick'; }]) {
+  for (const corrupt of [state => { state.users[0].role = 'root'; }, state => { state.tutors[0].photo = 'https://example.com/x.jpg'; }, state => { state.notifications.push({}); }, state => { state.programs[0].source = 'javascript:alert(1)'; }, state => { state.programs[0].source = 'http://www.hec.uliege.be'; }, state => { state.programs[0].seats = [{ label: 'Liste principale', count: -1 }]; }, state => { state.programs[0].minGrade = 'inconnue'; }, state => { state.offers[1].id = 'quick'; }]) {
     const state = store.get(); corrupt(state);
     const restored = createStore({ getItem: () => JSON.stringify(state), setItem() {} });
     assert.match(restored.warning(), /mémoire/);
@@ -441,7 +445,7 @@ test('suppression de compte : mot de passe requis, données personnelles effacé
   as(YASSINE); finish(store, past.id);
   as(SALMA);
   store.review(past.id, 5, 'Très clair');
-  store.saveOrientationProfile({ encg: 'Casablanca', level: 'S4', track: 'Gestion', average: 14, validated: 'S1-S3', languages: [{ language: 'Français', level: 'C1' }], countries: [], programType: 'Indifférent' });
+  store.saveOrientationProfile({ encg: 'Casablanca', level: 'S6', track: 'Gestion', average: 14, validated: 'S1-S3', languages: [{ language: 'Français', level: 'C1' }], countries: [], programType: 'Indifférent' });
   const future = pay({ start: slots()[6] });
   assert.throws(() => store.deleteAccount('mauvais', true), /incorrect/);
   assert.throws(() => store.deleteAccount(PASSWORD, false), /Confirmation/);
@@ -464,8 +468,8 @@ test('administration : domaines, référentiel, politique, comptes, export/impor
   assert.throws(() => store.setDomains('Agadir', ['pas un domaine']), /domaines valides/);
   store.setDomains('Agadir', ['uiz-encg.demo']);
   store.logout();
-  assert.throws(() => store.register({ name: 'Test', email: 'x@etu.encg-agadir.demo', encg: 'Agadir', level: 'S1', track: 'Gestion', password: 'Motdepasse1', consent: true }), /Domaine non autorisé/);
-  store.register({ name: 'Test', email: 'x@uiz-encg.demo', encg: 'Agadir', level: 'S1', track: 'Gestion', password: 'Motdepasse1', consent: true });
+  assert.throws(() => store.register({ name: 'Test', email: 'x@etu.encg-agadir.demo', encg: 'Agadir', level: 'S1', track: 'Tronc commun', password: 'Motdepasse1', consent: true }), /Domaine non autorisé/);
+  store.register({ name: 'Test', email: 'x@uiz-encg.demo', encg: 'Agadir', level: 'S1', track: 'Tronc commun', password: 'Motdepasse1', consent: true });
   as(ADMIN);
   assert.throws(() => store.removeChapter('compta-gen', 'compta-gen-1'), /utilisé/);
   const subjectId = store.saveSubject({ name: 'Fiscalité', level: 'S6' });
@@ -499,7 +503,7 @@ test('rappels avant séance et e-mails du §12 tous présents dans la boîte sim
   as(SALMA); pay({ start: slots()[6] }, 'refused');
   store.reschedule(booking.id, slots()[4]);
   store.saveOrientationProfile({ encg: 'Casablanca', level: 'S6', track: 'Gestion', average: 15, validated: 'S1-S5', languages: [{ language: 'Français', level: 'C1' }], countries: [], programType: 'Indifférent' });
-  store.requestConsultation({ programIds: ['p1'], topic: 'Comparer les échanges en France', availability: 'Mercredi' });
+  store.requestConsultation({ programIds: ['hec-liege'], topic: 'Comparer les échanges en France', availability: 'Mercredi' });
   pay({ offerId: 'exam', start: slots()[9] });
   advance(new Date(Date.parse(slots()[4]) - 20 * 3600000).toISOString());
   as(SALMA);
@@ -521,13 +525,64 @@ test('orientation : recommandations explicables, jamais garanties, et demande d\
   store.saveOrientationProfile({ encg: 'Casablanca', level: 'S6', track: 'Gestion', average: 13, validated: 'S1 à S5', languages: [{ language: 'Français', level: 'B2' }, { language: 'Anglais', level: 'B1' }], countries: ['France', 'Italie'], programType: 'Échange semestriel' });
   const recommendations = store.recommendations('s1');
   const eligible = recommendations.filter(item => item.eligible).map(item => item.programId);
-  assert.deepEqual(eligible.sort(), ['p1', 'p5']);
+  assert.deepEqual(eligible.sort(), ['amu', 'clermont-sb', 'rennes-sb'], 'critères connus remplis ; critères inconnus non bloquants');
   assert.ok(recommendations.every(item => item.criteria.length === 6));
+  const clermont = recommendations.find(item => item.programId === 'clermont-sb');
+  assert.deepEqual(clermont.criteria.filter(item => item.unknown).map(item => item.label), ['Filières éligibles', 'Niveau minimum', 'Moyenne minimale', 'Exigence linguistique', 'Type de mobilité']);
+  assert.ok(clermont.criteria.filter(item => item.unknown).every(item => item.ok === false), 'un critère inconnu n\'est jamais rempli');
+  assert.deepEqual([clermont.met, clermont.total, clermont.unknown], [1, 1, 5], 'les critères inconnus sortent du décompte');
+  assert.equal(clermont.deadlinePassed, false, 'date limite inconnue : non dépassée');
+  const shandong = recommendations.find(item => item.programId === 'shandong');
+  assert.equal(shandong.eligible, false);
+  assert.equal(shandong.criteria.find(item => /Type recherché/.test(item.label)).ok, false, 'type de mobilité connu (Échange) comparé');
+  store.saveOrientationProfile({ encg: 'Casablanca', level: 'S6', track: 'Gestion', average: 13, validated: '', languages: [{ language: 'Français', level: 'B2' }], countries: ['Canada'], programType: 'Échange' });
+  assert.deepEqual(store.recommendations('s1').filter(item => item.eligible).map(item => item.programId).sort(), ['sherbrooke', 'uqam-esg']);
   assert.throws(() => store.saveOrientationProfile({ encg: 'Casablanca', level: 'S6', track: 'Gestion', average: 25, validated: '', languages: [{ language: 'Français', level: 'B2' }], countries: [], programType: 'Indifférent' }), /Moyenne/);
   as(ADMIN);
-  assert.throws(() => store.saveProgram({ name: 'Programme réel', institution: 'Université X', country: 'France', mobility: 'Double diplôme', level: 'S6', tracks: ['Gestion'], minGrade: 12, language: 'Français', languageLevel: 'B2', deadline: '2027-03-01', documents: [], source: 'https://universite-reelle.fr', active: true }), /example\.org/);
-  store.saveProgram({ name: 'Nouveau programme', institution: 'Institut fictif', country: 'Portugal', mobility: 'Double diplôme', level: 'S6', tracks: ['Gestion'], minGrade: 12, language: 'Français', languageLevel: 'B2', deadline: '2027-03-01', documents: ['CV'], source: 'https://example.org/programmes/nouveau', active: true });
-  assert.equal(store.get().programs.length, 7);
+  const base = { name: 'Programme réel', institution: 'Université X', country: 'France', mobility: '', level: '', tracks: [], minGrade: '', language: '', languageLevel: 'B2', deadline: '', documents: [], seats: [{ label: 'Liste principale', count: 20 }], source: 'https://www.hec.uliege.be', active: true };
+  for (const source of ['http://www.hec.uliege.be', 'javascript:alert(1)', 'https://', 'https://exemple', 'https://www.hec.uliege.be/" onmouseover="x']) assert.throws(() => store.saveProgram({ ...base, source }), /https:\/\/ valide/, source);
+  for (const seats of [[{ label: 'Liste principale', count: -1 }], [{ label: 'Liste principale', count: 2.5 }], [{ label: 'Liste principale', count: NaN }], [{ label: '', count: 3 }]]) assert.throws(() => store.saveProgram({ ...base, seats }), /Places/);
+  const id = store.saveProgram(base);
+  const created = store.get().programs.find(item => item.id === id);
+  assert.deepEqual({ mobility: created.mobility, level: created.level, minGrade: created.minGrade, languageReq: created.languageReq, deadline: created.deadline, seats: created.seats, source: created.source }, { mobility: null, level: null, minGrade: null, languageReq: null, deadline: null, seats: [{ label: 'Liste principale', count: 20 }], source: 'https://www.hec.uliege.be' });
+  assert.equal(store.get().programs.length, 10);
+  for (const source of ['https://site.ma?lang=fr', 'https://site.ma#x']) {
+    store.saveProgram({ ...base, id, source });
+    assert.equal(store.get().programs.find(item => item.id === id).source, source, `${source} accepté`);
+  }
+  const sherbrooke = store.get().programs.find(item => item.id === 'sherbrooke');
+  const edit = { ...sherbrooke, language: '', languageLevel: 'B2', deadline: '', level: '' };
+  store.saveProgram({ ...edit, minGrade: 14 });
+  as(SALMA);
+  assert.equal(store.recommendations('s1').find(item => item.programId === 'sherbrooke').eligible, false, 'moyenne connue non atteinte');
+  as(ADMIN);
+  store.saveProgram({ ...edit, minGrade: '' });
+  assert.equal(store.get().programs.find(item => item.id === 'sherbrooke').minGrade, null, 'moyenne vidée : de nouveau inconnue');
+  assert.deepEqual(store.get().programs.find(item => item.id === 'sherbrooke').seats, [{ label: 'Places', count: 2 }]);
+  as(SALMA);
+  assert.equal(store.recommendations('s1').find(item => item.programId === 'sherbrooke').eligible, true);
+});
+
+test('filières : cohérence niveau / filière à l\'inscription, au profil et à l\'orientation', () => {
+  const { store, as, emails } = setup();
+  const profile = { encg: 'Casablanca', average: 14, validated: '', languages: [{ language: 'Français', level: 'B2' }], countries: [], programType: 'Indifférent' };
+  assert.throws(() => store.saveOrientationProfile({ ...profile, level: 'S3', track: 'Finance' }), /^Error: Filière non proposée au niveau S3\.$/);
+  assert.throws(() => store.updateProfile({ name: 'Salma Benali', level: 'S3', track: 'Finance' }), /^Error: Filière non proposée au niveau S3\.$/);
+  assert.throws(() => store.updateProfile({ name: 'Salma Benali', level: 'S7', track: 'Gestion' }), /Filière non proposée au niveau S7\./);
+  store.updateProfile({ name: 'Salma Benali', level: 'S9', track: 'Audit et contrôle de gestion (ACG)' });
+  store.updateProfile({ name: 'Salma Benali', level: 'S9', track: 'Marketing digital (MD)' });
+  store.saveOrientationProfile({ ...profile, level: 'S6', track: 'Commerce' });
+  store.logout();
+  const base = { name: 'Nadia Alaoui', email: 'nadia@etu.encg-agadir.demo', encg: 'Agadir', password: 'Motdepasse1', consent: true };
+  assert.throws(() => store.register({ ...base, level: 'S3', track: 'Finance' }), /^Error: Filière non proposée au niveau S3\.$/);
+  assert.throws(() => store.register({ ...base, level: 'S5', track: 'Marketing' }), /Choisissez votre filière/, 'ancienne filière fictive refusée');
+  store.register({ ...base, level: 'S6', track: 'Commerce' });
+  assert.equal(emails('nadia@etu.encg-agadir.demo', 'verification').length, 1);
+  as(ADMIN);
+  store.setLevels(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'Master 1']);
+  store.logout();
+  store.register({ ...base, email: 'imane@etu.encg-agadir.demo', level: 'Master 1', track: 'Finance' });
+  assert.equal(store.get().users.find(item => item.email === 'imane@etu.encg-agadir.demo').track, 'Finance', 'niveau hors cycles connus : toutes les filières acceptées');
 });
 
 test('Study Pods : aucune réservation étudiante, actualités, prototype QR admin à usage unique', () => {
@@ -606,7 +661,7 @@ test('codes : 5 émissions maximum par heure et par usage', () => {
   advance('2026-10-23T09:01:00Z');
   store.requestReset(SALMA);
   assert.equal(emails(SALMA, 'password-reset').length, 6);
-  store.register({ name: 'Nadia', email: 'nadia@etu.encg-agadir.demo', encg: 'Agadir', level: 'S2', track: 'Gestion', password: 'Motdepasse1', consent: true });
+  store.register({ name: 'Nadia', email: 'nadia@etu.encg-agadir.demo', encg: 'Agadir', level: 'S2', track: 'Tronc commun', password: 'Motdepasse1', consent: true });
   for (let index = 0; index < 6; index += 1) store.resendCode('nadia@etu.encg-agadir.demo');
   assert.equal(emails('nadia@etu.encg-agadir.demo', 'verification').length, 5);
 });
@@ -665,14 +720,14 @@ test('session : la navigation (tick) prolonge une session valide', () => {
 test('orientation : date limite dépassée (fin de journée au Maroc) jamais éligible', () => {
   const { store, as, advance } = setup();
   as(ADMIN);
-  store.saveProgram({ id: 'p1', name: "Semestre d'échange en gestion", institution: 'Institut Atlantique de Gestion (fictif)', country: 'France', mobility: 'Échange semestriel', level: 'S5', tracks: ['Gestion'], minGrade: 12, language: 'Français', languageLevel: 'B2', deadline: '2026-10-24', documents: ['Relevés'], source: 'https://example.org/programmes/p1', active: true });
+  store.saveProgram({ id: 'hec-liege', name: 'Mobilité HEC Liège', institution: 'HEC Liège — Université de Liège', country: 'Belgique', city: 'Liège', mobility: '', level: 'S5', tracks: ['Gestion'], minGrade: 12, language: 'Français', languageLevel: 'B2', deadline: '2026-10-24', documents: ['Relevés'], seats: [{ label: 'Liste principale', count: 20 }, { label: 'Liste d\'attente', count: 20 }], source: 'https://www.hec.uliege.be', sourceNote: 'Liste communiquée par l\'ENCG, année 2025-2026', active: true });
   as(SALMA);
   store.saveOrientationProfile({ encg: 'Casablanca', level: 'S6', track: 'Gestion', average: 15, validated: '', languages: [{ language: 'Français', level: 'C1' }], countries: [], programType: 'Indifférent' });
-  assert.equal(store.recommendations('s1').find(item => item.programId === 'p1').eligible, true);
+  assert.equal(store.recommendations('s1').find(item => item.programId === 'hec-liege').eligible, true);
   advance('2026-10-24T23:30:00Z');
-  assert.equal(store.recommendations('s1').find(item => item.programId === 'p1').eligible, true, '23:30 au Maroc : encore ouvert');
+  assert.equal(store.recommendations('s1').find(item => item.programId === 'hec-liege').eligible, true, '23:30 au Maroc : encore ouvert');
   advance('2026-10-25T00:30:00Z');
-  const late = store.recommendations('s1').find(item => item.programId === 'p1');
+  const late = store.recommendations('s1').find(item => item.programId === 'hec-liege');
   assert.equal(late.deadlinePassed, true);
   assert.equal(late.eligible, false);
 });

@@ -3,8 +3,9 @@
   const isNode = typeof module !== 'undefined' && module.exports;
   const data = isNode ? require('./data.js') : root.OntrackData;
   const { sha256 } = isNode ? require('./sha256.js') : root.OntrackSha256;
-  const KEY = 'ontrack-demo-v2';
-  const LEGACY_KEYS = ['ontrack-demo-v1'];
+  const KEY = 'ontrack-demo-v3';
+  const LEGACY_KEYS = ['ontrack-demo-v1', 'ontrack-demo-v2'];
+  const VERSION = 3;
   const MINUTE = 60000;
   const HOUR = 60 * MINUTE;
   const copy = value => JSON.parse(JSON.stringify(value));
@@ -21,6 +22,29 @@
   const PASSWORD_RULE = /^(?=.*[A-Za-zÀ-ÿ])(?=.*\d).{8,72}$/;
   const EMAIL_RULE = /^[^\s@]{1,64}@[a-z0-9.-]+\.[a-z]{2,}$/;
   const DOMAIN_RULE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+  // Lien officiel d'un établissement : https uniquement, nom d'hôte complet, sans espace ni guillemet.
+  const SOURCE_RULE = /^https:\/\/([a-z0-9-]+\.)+[a-z]{2,}(:\d{2,5})?([/?#][^\s"'<>`]*)?$/i;
+  const DATE_RULE = /^\d{4}-\d{2}-\d{2}$/;
+  const validDay = value => typeof value === 'string' && DATE_RULE.test(value) && Number.isFinite(Date.parse(`${value}T12:00:00Z`)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
+  const validSeats = seats => Array.isArray(seats) && seats.length <= 10 && seats.every(seat => seat && typeof seat === 'object' && text(seat.label, 1, 60) && Number.isInteger(seat.count) && seat.count >= 0 && seat.count <= 10000);
+  // Validation d'une destination : tout critère non communiqué vaut null (« à confirmer »), jamais inventé.
+  function validProgram(program, levels) {
+    if (!program || typeof program !== 'object') return false;
+    const strings = ['id', 'name', 'institution', 'country', 'source'].every(key => typeof program[key] === 'string' && program[key].trim());
+    const optional = key => program[key] === null || program[key] === undefined || typeof program[key] === 'string';
+    const language = program.languageReq;
+    return strings && optional('city') && optional('sourceNote')
+      && (program.mobility === null || data.constants.mobilities.includes(program.mobility))
+      && (program.level === null || levels.includes(program.level))
+      && Array.isArray(program.tracks) && program.tracks.every(track => data.constants.tracks.includes(track))
+      && Array.isArray(program.documents) && program.documents.every(item => typeof item === 'string')
+      && (program.minGrade === null || (Number.isFinite(program.minGrade) && program.minGrade >= 0 && program.minGrade <= 20))
+      && (language === null || (language && data.constants.languages.includes(language.language) && data.constants.cefr.includes(language.level)))
+      && (program.deadline === null || validDay(program.deadline))
+      && validSeats(program.seats)
+      && typeof program.active === 'boolean'
+      && program.source.length <= 200 && SOURCE_RULE.test(program.source);
+  }
   const EMAIL_KINDS = ['verification', 'welcome', 'booking-confirmed', 'payment-confirmed', 'payment-failed', 'reminder', 'booking-changed', 'report-available', 'package-info', 'orientation-confirmed', 'password-reset', 'password-changed', 'tutor-approved', 'tutor-booking', 'pods-news', 'account-deleted'];
   const formatDate = value => new Intl.DateTimeFormat('fr-MA', { timeZone: 'Africa/Casablanca', dateStyle: 'full', timeStyle: 'short' }).format(new Date(value));
   const formatMoney = value => `${new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value)} DH`;
@@ -42,7 +66,7 @@
     const id = prefix => `${prefix}-${time().toString(36)}-${randomHex(4)}`;
 
     function valid(candidate) {
-      assert(candidate && candidate.version === 2, 'Version locale incompatible.');
+      assert(candidate && candidate.version === VERSION, 'Version locale incompatible.');
       const arrays = ['encgs', 'levels', 'subjects', 'users', 'codes', 'emails', 'tutors', 'offers', 'bookings', 'transactions', 'packages', 'reviews', 'payouts', 'programs', 'orientationProfiles', 'consultations', 'messages', 'notifications'];
       for (const key of arrays) assert(Array.isArray(candidate[key]), 'Données locales invalides.');
       const strings = (item, keys) => item && typeof item === 'object' && keys.every(key => typeof item[key] === 'string');
@@ -79,7 +103,7 @@
       for (const transaction of candidate.transactions) assert(strings(transaction, ['id', 'orderId', 'kind', 'studentId', 'offerName', 'status', 'created']) && TX_STATUSES.includes(transaction.status) && Number.isFinite(transaction.amount) && Number.isFinite(transaction.fee), 'Transaction invalide.');
       for (const pack of candidate.packages) assert(strings(pack, ['id', 'studentId', 'offerId', 'name', 'transactionId', 'status']) && Number.isInteger(pack.remaining) && pack.remaining >= 0 && pack.remaining <= pack.total && Number.isFinite(Date.parse(pack.expires)) && ['active', 'expired', 'terminated'].includes(pack.status), 'Forfait invalide.');
       for (const review of candidate.reviews) assert(strings(review, ['id', 'bookingId', 'studentId', 'tutorId', 'text']) && Number.isInteger(review.rating) && review.rating >= 1 && review.rating <= 5 && typeof review.hidden === 'boolean' && typeof review.reported === 'boolean', 'Avis invalide.');
-      for (const program of candidate.programs) assert(strings(program, ['id', 'name', 'institution', 'country', 'mobility', 'level', 'deadline', 'source']) && Array.isArray(program.tracks) && Array.isArray(program.documents) && Number.isFinite(program.minGrade) && program.minGrade >= 0 && program.minGrade <= 20 && program.languageReq && typeof program.active === 'boolean' && /^https:\/\/example\.org\//.test(program.source), 'Programme invalide.');
+      for (const program of candidate.programs) assert(validProgram(program, candidate.levels), 'Programme invalide.');
       for (const email of candidate.emails) assert(strings(email, ['id', 'to', 'kind', 'subject', 'created']) && Array.isArray(email.lines), 'E-mail invalide.');
       for (const notification of candidate.notifications) assert(strings(notification, ['id', 'userId', 'text', 'created']), 'Notification invalide.');
       for (const message of candidate.messages) assert(strings(message, ['id', 'name', 'text', 'created']), 'Message invalide.');
@@ -371,20 +395,24 @@
       if (!profile) return [];
       const rank = level => state.levels.indexOf(level);
       const cefr = level => data.constants.cefr.indexOf(level);
+      // Critère non communiqué : affiché « à confirmer », ni rempli ni bloquant, exclu de met / total.
+      const unknown = label => ({ label, ok: false, unknown: true });
       return state.programs.filter(program => program.active).map(program => {
-        const spoken = profile.languages.find(item => item.language === program.languageReq.language);
+        const language = program.languageReq;
+        const spoken = language ? profile.languages.find(item => item.language === language.language) : null;
         const criteria = [
-          { label: `Filière compatible (${program.tracks.join(', ')})`, ok: program.tracks.includes(profile.track) },
-          { label: `Niveau minimum ${program.level}`, ok: rank(profile.level) >= rank(program.level) },
-          { label: `Moyenne minimale ${program.minGrade} / 20`, ok: Number(profile.average) >= program.minGrade },
-          { label: `${program.languageReq.language} niveau ${program.languageReq.level}`, ok: Boolean(spoken) && cefr(spoken.level) >= cefr(program.languageReq.level) },
+          program.tracks.length ? { label: `Filière compatible (${program.tracks.join(', ')})`, ok: program.tracks.includes(profile.track) } : unknown('Filières éligibles'),
+          program.level ? { label: `Niveau minimum ${program.level}`, ok: rank(profile.level) >= rank(program.level) } : unknown('Niveau minimum'),
+          program.minGrade !== null ? { label: `Moyenne minimale ${program.minGrade} / 20`, ok: Number(profile.average) >= program.minGrade } : unknown('Moyenne minimale'),
+          language ? { label: `${language.language} niveau ${language.level}`, ok: Boolean(spoken) && cefr(spoken.level) >= cefr(language.level) } : unknown('Exigence linguistique'),
           { label: profile.countries.length ? `Destination souhaitée (${program.country})` : 'Destination : aucune préférence', ok: !profile.countries.length || profile.countries.includes(program.country) },
-          { label: profile.programType === 'Indifférent' ? 'Type de mobilité : indifférent' : `Type recherché : ${profile.programType}`, ok: profile.programType === 'Indifférent' || profile.programType === program.mobility }
+          profile.programType === 'Indifférent' ? { label: 'Type de mobilité : indifférent', ok: true } : program.mobility ? { label: `Type recherché : ${profile.programType}`, ok: profile.programType === program.mobility } : unknown('Type de mobilité')
         ];
-        const met = criteria.filter(item => item.ok).length;
-        const deadlinePassed = Date.parse(data.moroccoInstant(program.deadline, 23, 59)) < time();
-        return { programId: program.id, criteria, met, total: criteria.length, eligible: met === criteria.length && !deadlinePassed, deadlinePassed };
-      }).sort((first, second) => second.met - first.met);
+        const known = criteria.filter(item => !item.unknown);
+        const met = known.filter(item => item.ok).length;
+        const deadlinePassed = program.deadline ? Date.parse(data.moroccoInstant(program.deadline, 23, 59)) < time() : false;
+        return { programId: program.id, criteria, met, total: known.length, unknown: criteria.length - known.length, eligible: met === known.length && !deadlinePassed, deadlinePassed };
+      }).sort((first, second) => Number(second.eligible) - Number(first.eligible) || (second.total ? second.met / second.total : 0) - (first.total ? first.met / first.total : 0));
     }
     function payoutSummary(tutorId) {
       const sessions = state.bookings.filter(booking => booking.tutorId === tutorId && booking.payout && ['completed', 'absent'].includes(booking.status));
@@ -437,6 +465,10 @@
       assert(!userByEmail(email), 'Un compte existe déjà avec cette adresse. Connectez-vous ou réinitialisez votre mot de passe.');
       return email;
     }
+    // Cohérence niveau / filière (trackGroups) ; un niveau hors des cycles connus accepte toutes les filières.
+    function checkTrackLevel(level, track) {
+      assert(data.tracksFor(level).includes(track), `Filière non proposée au niveau ${level}.`);
+    }
     function createUser(role, input, email, extra) {
       const salt = randomHex(16);
       const user = { id: id(role === 'student' ? 'stu' : 'tut'), role, name: input.name.trim(), email, salt, hash: hashPassword(salt, input.password), verified: false, status: 'active', created: stamp(), ...extra };
@@ -478,6 +510,7 @@
       register: input => mutate(() => {
         const email = validateIdentity(input);
         assert(data.constants.tracks.includes(input.track), 'Choisissez votre filière.');
+        checkTrackLevel(input.level, input.track);
         createUser('student', input, email, { encg: input.encg, level: input.level, track: input.track });
         return { email };
       }),
@@ -560,6 +593,7 @@
         const user = me('student');
         assert(text(input.name, 2, 80), 'Nom invalide.');
         assert(state.levels.includes(input.level) && data.constants.tracks.includes(input.track), 'Niveau ou filière invalide.');
+        checkTrackLevel(input.level, input.track);
         user.name = input.name.trim(); user.level = input.level; user.track = input.track;
       }),
       deleteAccount: (password, confirmed) => mutate(() => {
@@ -763,6 +797,7 @@
         const student = me('student');
         const average = Number(input.average);
         assert(state.encgs.includes(input.encg) && state.levels.includes(input.level) && data.constants.tracks.includes(input.track), 'ENCG, niveau ou filière invalide.');
+        checkTrackLevel(input.level, input.track);
         assert(Number.isFinite(average) && average >= 0 && average <= 20, 'Moyenne sur 20 invalide.');
         assert(typeof input.validated === 'string' && input.validated.length <= 300, 'Matières et semestres validés : 300 caractères maximum.');
         const languages = (input.languages || []).filter(item => item && item.language);
@@ -954,17 +989,24 @@
       saveProgram: input => mutate(() => {
         me('admin');
         const value = input || {};
-        const minGrade = Number(value.minGrade);
+        // Champs facultatifs : vides = non communiqués (null), affichés « à confirmer auprès de l'ENCG ».
+        const blank = item => item === undefined || item === null || String(item).trim() === '';
+        const minGrade = blank(value.minGrade) ? null : Number(value.minGrade);
         const tracks = [...new Set(value.tracks || [])];
         const documents = (value.documents || []).map(item => String(item).trim()).filter(Boolean);
+        const source = typeof value.source === 'string' ? value.source.trim() : '';
+        const seats = (Array.isArray(value.seats) ? value.seats : []).map(seat => ({ label: typeof seat?.label === 'string' ? seat.label.trim() : '', count: seat?.count }));
         assert(text(value.name, 3, 120) && text(value.institution, 3, 120) && text(value.country, 2, 60), 'Nom, établissement et pays requis.');
-        assert(data.constants.mobilities.includes(value.mobility) && state.levels.includes(value.level), 'Type de mobilité ou niveau invalide.');
-        assert(tracks.length > 0 && tracks.every(track => data.constants.tracks.includes(track)), 'Choisissez au moins une filière.');
-        assert(Number.isFinite(minGrade) && minGrade >= 0 && minGrade <= 20, 'Moyenne minimale invalide.');
-        assert(data.constants.languages.includes(value.language) && data.constants.cefr.includes(value.languageLevel), 'Exigence linguistique invalide.');
-        assert(/^\d{4}-\d{2}-\d{2}$/.test(value.deadline || '') && Number.isFinite(Date.parse(value.deadline)), 'Date limite invalide.');
-        assert(typeof value.source === 'string' && /^https:\/\/example\.org\/[\w\-/]*$/.test(value.source), 'Source officielle : lien https://example.org/… uniquement (démonstration).');
-        const fields = { name: value.name.trim(), institution: value.institution.trim(), country: value.country.trim(), mobility: value.mobility, level: value.level, tracks, minGrade: round2(minGrade), languageReq: { language: value.language, level: value.languageLevel }, deadline: value.deadline, documents, source: value.source, active: value.active === true };
+        assert(blank(value.city) || text(value.city, 2, 60), 'Ville : 2 à 60 caractères ou laissez vide.');
+        assert((blank(value.mobility) || data.constants.mobilities.includes(value.mobility)) && (blank(value.level) || state.levels.includes(value.level)), 'Type de mobilité ou niveau invalide.');
+        assert(tracks.every(track => data.constants.tracks.includes(track)), 'Filière inconnue.');
+        assert(minGrade === null || (Number.isFinite(minGrade) && minGrade >= 0 && minGrade <= 20), 'Moyenne minimale invalide.');
+        assert(blank(value.language) || (data.constants.languages.includes(value.language) && data.constants.cefr.includes(value.languageLevel)), 'Exigence linguistique invalide.');
+        assert(blank(value.deadline) || validDay(value.deadline), 'Date limite invalide.');
+        assert(validSeats(seats), 'Places : une ligne « libellé : nombre » par liste, avec un nombre entier positif ou nul.');
+        assert(blank(value.sourceNote) || text(value.sourceNote, 1, 200), 'Note de source : 200 caractères maximum.');
+        assert(source.length <= 200 && SOURCE_RULE.test(source), 'Site officiel : lien https:// valide requis.');
+        const fields = { name: value.name.trim(), institution: value.institution.trim(), country: value.country.trim(), city: blank(value.city) ? null : value.city.trim(), mobility: blank(value.mobility) ? null : value.mobility, seats, level: blank(value.level) ? null : value.level, tracks, minGrade: minGrade === null ? null : round2(minGrade), languageReq: blank(value.language) ? null : { language: value.language, level: value.languageLevel }, deadline: blank(value.deadline) ? null : value.deadline, documents, source, sourceNote: blank(value.sourceNote) ? '' : value.sourceNote.trim(), active: value.active === true };
         if (value.id) { const program = state.programs.find(item => item.id === value.id); assert(program, 'Programme introuvable.'); Object.assign(program, fields); return program.id; }
         const program = { id: id('prog'), ...fields };
         state.programs.push(program);

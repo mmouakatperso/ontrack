@@ -1,6 +1,6 @@
 # ONTRACK — Documentation technique
 
-Version 2 de la démonstration (clé de stockage `ontrack-demo-v2`). Ce document répond aux §18.4, §19 et §22 du cahier des charges : technologies, données, sécurité, hébergement, services externes, maintenance et transfert. La démonstration simule les services externes ; les écarts avec une mise en production sont signalés dans chaque section.
+Version 3 de la démonstration (clé de stockage `ontrack-demo-v3`). Ce document répond aux §18.4, §19 et §22 du cahier des charges : technologies, données, sécurité, hébergement, services externes, maintenance et transfert. La démonstration simule les services externes ; les écarts avec une mise en production sont signalés dans chaque section.
 
 ## 1. Technologies et principes
 
@@ -22,7 +22,7 @@ Aucune dépendance, aucune compilation, aucun appel réseau. Node.js 22 sert uni
 | `index.html` | Point d'entrée, en-tête avec menu de compte, pied de page complet, chargement des scripts dans l'ordre |
 | `styles.css` | Charte (§3.1) : marine `--navy`, bleu `--blue`, fond blanc cassé `--paper`, violet `--violet` pour les éléments interactifs, gris clair `--line`/`--gray` ; mise en page responsive (390 → 1440 px) |
 | `sha256.js` | SHA-256 synchrone (UMD) ; utilisé par le navigateur et par Node |
-| `data.js` | Jeu initial v2 (`seed(now)`), conversion heure marocaine (`moroccoInstant`, `moroccoDay`), constantes, comptes de démonstration |
+| `data.js` | Jeu initial v3 (`seed(now)`), conversion heure marocaine (`moroccoInstant`, `moroccoDay`), constantes, comptes de démonstration |
 | `store.js` | Toute la logique métier, sans DOM : `createStore(storage, clock)` |
 | `i18n.js` | Langue de l'interface (français par défaut, anglais) : `t('Libellé {param}', { param })`, traduction des messages du store à l'affichage (`message`), choix mémorisé dans `localStorage` (clé `ontrack-lang`), formats de date et de nombre selon la langue |
 | `i18n-en.js` | Dictionnaire anglais : clé = libellé français exact. Seuls les libellés de l'interface sont traduits, jamais les données |
@@ -52,7 +52,7 @@ Le sélecteur FR | EN du menu principal bascule toute l'interface (menus, libell
 
 Les vues sont des fonctions pures `(ctx) => HTML` ; toutes les valeurs affichées passent par `escape`.
 
-## 3. Modèle de données (v2)
+## 3. Modèle de données (v3)
 
 | Collection | Contenu principal |
 | --- | --- |
@@ -71,17 +71,21 @@ Les vues sont des fonctions pures `(ctx) => HTML` ; toutes les valeurs affichée
 | `packages` | `{ offerId, total, remaining, creditValues[], expires, status (active/expired/terminated) }` |
 | `reviews` | `{ bookingId, rating, text, reported, reportReason, hidden, resolution }` |
 | `payouts` | Versements aux tuteurs : `{ tutorId, amount, bookingIds, reference }` |
-| `programs` | `{ name, institution, country, mobility, level, tracks, minGrade, languageReq{language, level}, deadline, documents, source (https://example.org/…), active }` |
+| `programs` | Destinations communiquées par l'ENCG : `{ id, name, institution, country, city, mobility, seats[{label, count}], level, tracks, minGrade, languageReq{language, level}, deadline, documents, source (https://…), sourceNote, active }`. Un critère non communiqué vaut `null` (ou `[]` pour `tracks` et `documents`) et s'affiche « À confirmer auprès de l'ENCG ». `seats` garde chaque liste séparément (jamais de total) |
 | `orientationProfiles`, `consultations` | Profil d'orientation minimal ; demandes d'entretien |
 | `pods` | `locations` (statut « en étude »), `subscribers`, `prototype` (jetons QR à usage unique, réservés à l'admin) |
 | `messages`, `notifications` | Contact ; notifications in-app par `userId` |
 
-Chaque mutation revalide tout l'état (`valid()`) : types, énumérations, unicité des identifiants et des adresses, références (tuteur, chapitres), photos limitées aux fichiers locaux, liens de programme limités à `example.org`. Un état local invalide n'est jamais écrasé : la session passe en mode mémoire avec un avertissement. Un ancien état v1 (`ontrack-demo-v1`) est ignoré et supprimé ; la v2 repart du jeu initial, sans migration.
+Chaque mutation revalide tout l'état (`valid()`) : types, énumérations, unicité des identifiants et des adresses, références (tuteur, chapitres), photos limitées aux fichiers locaux, liens de programme limités à des URL `https://` valides (refus de `http://` et `javascript:`), places en nombres entiers positifs ou nuls. Un état local invalide n'est jamais écrasé : la session passe en mode mémoire avec un avertissement. Les anciens états v1 et v2 (`ontrack-demo-v1`, `ontrack-demo-v2`) sont ignorés et supprimés ; la v3 repart du jeu initial, sans migration.
+
+### Filières (`data.js`)
+
+`constants.trackGroups` regroupe les filières réelles par cycle, d'après les plannings 2025-2026 de l'ENCG Casablanca : années préparatoires (S1–S4, Tronc commun), cycle du diplôme 1re année (S5–S6, Gestion et Commerce), cycle du diplôme 2e année et au-delà (S7–S10, Finance, CAC, MRH, PSCM, BA, MD, MAC, CI) et ancien régime (S9–S10, GFC, ACG, ML). `constants.tracks` en est la liste à plat ; `tracksFor(level)` et `trackGroupsFor(level)` donnent les filières d'un niveau. Un niveau absent des cycles (créé par l'administration) accepte toutes les filières. `register`, `updateProfile` et `saveOrientationProfile` refusent une filière incohérente avec le niveau. Les formulaires affichent un `<select>` à `<optgroup>` par cycle, reconstruit au changement de niveau (`O.change('level-tracks')`). Les intitulés développés des sigles restent à confirmer.
 
 ### Jeu initial
 
 - Comptes (mot de passe `Demo2026!`, admin `Admin2026!`) : Salma (étudiante, sans historique), Omar (abonné Stay ONTRACK avec deux séances terminées, comptes rendus et avis), Yassine et Lina (tuteurs publiés), Adam (tuteur en attente de validation), administrateur.
-- 30 créneaux par tuteur (J+1 à J+10, 10 h, 14 h, 18 h heure marocaine), créneaux prioritaires Stay, 6 matières et 27 chapitres, 6 programmes fictifs, 3 lieux Study Pods « en étude ».
+- 30 créneaux par tuteur (J+1 à J+10, 10 h, 14 h, 18 h heure marocaine), créneaux prioritaires Stay, 6 matières et 27 chapitres, 9 destinations communiquées par l'ENCG (places et liens officiels, critères d'admission « à confirmer »), 3 lieux Study Pods « en étude ». Salma est en S6, filière Gestion ; Omar en S3, Tronc commun.
 
 ## 4. Règles métier implémentées
 
@@ -97,7 +101,7 @@ Chaque mutation revalide tout l'état (`valid()`) : types, énumérations, unici
 - **Avis (§7.3)** : un avis par séance terminée, réservé au participant ; signalement par le tuteur → file de modération ; un avis masqué est exclu de la moyenne.
 - **Rémunération (§9)** : phase volontaire → 0 DH ; phase rémunérée → tarif par séance (§9.2 : 30 / 90 / 75 / 50 DH) figé au compte rendu (ou à l'absence). Versements enregistrés par l'administrateur.
 - **Suivi financier (§9.3)** : chiffre d'affaires, remboursements, frais, sommes dues et versées, recettes par service, montant conservé avant autres coûts (présenté comme non assimilable au bénéfice net).
-- **Orientation (§14)** : six critères explicites par programme (filière, niveau, moyenne, langue CECRL, destination, type de mobilité) ; « potentiellement adapté » si tous sont remplis, sinon « piste à explorer » ; jamais de garantie d'admission. Demande d'entretien avec e-mail de confirmation.
+- **Orientation (§14)** : six critères explicites par programme (filière, niveau, moyenne, langue CECRL, destination, type de mobilité). Un critère dont la donnée n'est pas communiquée (`null`) est marqué `unknown` : affiché « À confirmer auprès de l'ENCG » avec une icône « ? », ni rempli ni bloquant, exclu de `met` et `total`. « Potentiellement adapté » si tous les critères connus sont remplis et que la date limite, si elle existe, n'est pas dépassée, sinon « piste à explorer » ; jamais de garantie d'admission. Demande d'entretien avec e-mail de confirmation.
 - **Study Pods (§15)** : présentation « Coming Soon » et formulaire d'actualités ; aucune réservation étudiante. Prototype QR administrateur : jeton aléatoire de 128 bits sans donnée personnelle, seul son hachage sert à la vérification, usage unique, expiration 2 h après le créneau. L'aperçu est un motif visuel dérivé du hachage, **non scannable**.
 
 ## 5. Sécurité et protection des données
@@ -169,7 +173,7 @@ La démonstration peut, en l'état, être déposée sur tout hébergeur statique
 
 ## 9. Sauvegarde et restauration
 
-- **Démonstration** : `#admin/sauvegarde` → « Exporter les données (JSON) » ; restauration par import d'un fichier JSON validé (refus d'un fichier illisible ou d'une version incompatible ; la session administrateur est conservée). La réinitialisation recharge le jeu initial.
+- **Démonstration** : `#admin/sauvegarde` → « Exporter les données (JSON) » ; restauration par import d'un fichier JSON validé (refus d'un fichier illisible ou d'une version incompatible ; la session administrateur est conservée). Seules les sauvegardes v3 sont acceptées : un export v1 ou v2 est refusé (« Version locale incompatible »), sans migration. La réinitialisation recharge le jeu initial.
 - **Production (proposition)** : sauvegarde quotidienne automatisée de la base (dump chiffré), conservation 30 jours, copie hors site hebdomadaire, test de restauration mensuel documenté, objectif de reprise 24 h.
 
 ## 10. Maintenance, propriété et transfert
