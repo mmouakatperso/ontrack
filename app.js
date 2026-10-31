@@ -55,7 +55,7 @@
     const box = document.getElementById('account');
     const unread = user ? store.get().notifications.filter(item => item.userId === user.id && !item.read).length : 0;
     box.innerHTML = user
-      ? `<a class="account-link" href="${spaces[user.role]}"><span class="account-name">${escape(user.name.split(' ')[0])}</span><span class="badge ${user.role === 'admin' ? 'violet' : ''}">${escape(t(roleLabels[user.role]))}</span>${unread ? `<span class="count" aria-label="${escape(t('{count} notification(s) non lue(s)', { count: unread }))}">${unread}</span>` : ''}</a><button type="button" class="button small secondary" data-action="logout">${escape(t('Déconnexion'))}</button>`
+      ? `<a class="account-link" href="${spaces[user.role]}"><span class="account-name">${escape(O.ui.firstName(user.name))}</span><span class="badge ${user.role === 'admin' ? 'violet' : ''}">${escape(t(roleLabels[user.role]))}</span>${unread ? `<span class="count" aria-label="${escape(t('{count} notification(s) non lue(s)', { count: unread }))}">${unread}</span>` : ''}</a><button type="button" class="button small secondary" data-action="logout">${escape(t('Déconnexion'))}</button>`
       : `<a class="button small secondary" href="#connexion">${escape(t('Connexion'))}</a><a class="button small" href="#inscription">${escape(t('Inscription'))}</a>`;
   }
   function render() {

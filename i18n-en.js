@@ -358,6 +358,7 @@
     'Des tuteurs issus des ENCG.': 'Tutors from the ENCG schools.',
     'Tous les tuteurs': 'All tutors',
     'Profils fictifs de démonstration. Photos illustratives publiées avec consentement simulé.': 'Fictitious demo profiles. Illustrative photos published with simulated consent.',
+    'Profils étudiants fictifs de démonstration, photos illustratives publiées avec consentement simulé. Dr Fatine Ouahtita, encadrante du projet, est une personne réelle : aucune photo ni coordonnée n\'est publiée.': 'Student profiles are fictitious demo profiles, with illustrative photos published with simulated consent. Dr Fatine Ouahtita, the project supervisor, is a real person: no photo or contact details are published.',
     'Portail d\'orientation': 'Guidance portal',
     'Et après, quel sera votre cap ?': 'What comes next for you?',
     'Destinations d\'échange communiquées par l\'ENCG : renseignez votre profil, découvrez les destinations potentiellement adaptées et les effectifs communiqués ; les critères d\'admission sont à confirmer auprès de l\'ENCG.': 'Exchange destinations communicated by the ENCG: fill in your profile, discover the destinations that may suit you and the numbers communicated; admission criteria are to be confirmed with the ENCG.',

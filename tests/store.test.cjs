@@ -1043,3 +1043,99 @@ test('deux onglets : l\'état est relu avant les tâches périodiques, dont l\'e
   assert.equal(state.bookings.find(item => item.id === first.id).status, 'failed');
   assert.ok(state.chat.messages.some(item => item.id === 'cm-autre-onglet'), 'écriture de l\'autre onglet conservée');
 });
+
+test('encadrante tutrice : réservable en Anglais commercial avec les créneaux de démonstration, niveau conservé', () => {
+  const { store, need, pay, as } = setup();
+  const state = store.get();
+  const subject = state.subjects.find(item => item.id === 'anglais-com');
+  assert.deepEqual({ name: subject.name, level: subject.level, chapters: subject.chapters.map(chapter => chapter.id) }, { name: 'Anglais commercial', level: 'S1', chapters: ['anglais-com-1', 'anglais-com-2', 'anglais-com-3', 'anglais-com-4'] });
+  const tutor = state.tutors.find(item => item.id === 't4');
+  assert.equal(tutor.status, 'approved');
+  assert.equal(tutor.photo, '');
+  assert.deepEqual(tutor.subjects, ['anglais-com', 'marketing']);
+  assert.equal(tutor.chapters.length, 8);
+  assert.equal(tutor.slots.length, state.tutors[0].slots.length);
+  assert.ok(!state.reviews.some(review => review.tutorId === 't4') && !state.bookings.some(booking => booking.tutorId === 't4'), 'ni avis ni séance inventés');
+  assert.equal(state.users.find(user => user.id === 't4').email, 'fatine.ouahtita@encg-casablanca.demo');
+  const matches = store.matchTutors({ subjectId: 'anglais-com', chapterId: 'anglais-com-3' }, 'quick');
+  assert.deepEqual(matches.map(item => item.tutorId), ['t4']);
+  const slot = store.freeSlots('t4', 'quick').find(item => !item.issue);
+  assert.ok(slot, 'au moins un créneau réservable');
+  const booking = pay({ tutorId: 't4', start: slot.start, need: { ...need, subjectId: 'anglais-com', chapterId: 'anglais-com-3' } });
+  assert.equal(booking.status, 'confirmed');
+  as('fatine.ouahtita@encg-casablanca.demo');
+  const profile = store.get().tutors.find(item => item.id === 't4');
+  store.updateTutorProfile({ level: 'Professeure', bio: profile.bio, languages: profile.languages, modes: profile.modes, services: profile.services, photoConsent: false, showAge: false, age: '' });
+  assert.equal(store.get().tutors.find(item => item.id === 't4').level, 'Professeure', 'niveau hors liste conservé');
+  assert.throws(() => store.updateTutorProfile({ level: 'Doyenne', bio: profile.bio, languages: profile.languages, modes: profile.modes, services: profile.services }), /Niveau d'études invalide/);
+});
+
+test('migration : un état v3 sans l\'encadrante reçoit sa matière, son compte et son profil, une seule fois', () => {
+  const clock = () => new Date('2026-10-23T08:00:00Z');
+  const withoutSupervisor = mutate => {
+    const storage = memoryStorage();
+    const before = createStore(storage, clock);
+    before.login(ADMIN, 'Admin2026!');
+    before.setOffer('quick', { price: 77 });
+    const saved = JSON.parse(storage.getItem(KEY));
+    saved.subjects = saved.subjects.filter(subject => subject.id !== 'anglais-com');
+    saved.users = saved.users.filter(user => user.id !== 't4');
+    saved.tutors = saved.tutors.filter(tutor => tutor.id !== 't4');
+    if (mutate) mutate(saved);
+    storage.setItem(KEY, JSON.stringify(saved));
+    return { storage, saved };
+  };
+  // Nouvel ajout : matière, compte et tutrice du seed ; le reste est intact.
+  const { storage, saved } = withoutSupervisor();
+  const migrated = createStore(storage, clock, memoryStorage());
+  assert.equal(migrated.warning(), '');
+  const state = migrated.get();
+  assert.equal(state.offers.find(offer => offer.id === 'quick').price, 77, 'données conservées');
+  assert.ok(state.subjects.some(subject => subject.id === 'anglais-com'));
+  assert.ok(state.users.some(user => user.id === 't4' && user.role === 'tutor'));
+  assert.equal(state.tutors.find(tutor => tutor.id === 't4').status, 'approved');
+  for (const key of ['bookings', 'reviews', 'transactions']) assert.deepEqual(state[key], saved[key], key);
+  assert.deepEqual(state.tutors.filter(tutor => tutor.id !== 't4'), saved.tutors);
+  const persisted = JSON.parse(storage.getItem(KEY));
+  assert.ok(persisted.tutors.some(tutor => tutor.id === 't4'), 'migration enregistrée');
+  // État contenant déjà t4 : aucune modification.
+  const snapshot = storage.getItem(KEY);
+  assert.equal(createStore(storage, clock, memoryStorage()).warning(), '');
+  assert.equal(storage.getItem(KEY), snapshot);
+  // Matière supprimée par l'administration alors que t4 existe : pas de réinsertion.
+  const removed = JSON.parse(snapshot);
+  removed.subjects = removed.subjects.filter(subject => subject.id !== 'anglais-com');
+  const t4 = removed.tutors.find(tutor => tutor.id === 't4');
+  t4.subjects = ['marketing']; t4.chapters = t4.chapters.filter(id => id.startsWith('marketing-'));
+  storage.setItem(KEY, JSON.stringify(removed));
+  const afterRemoval = createStore(storage, clock, memoryStorage());
+  assert.equal(afterRemoval.warning(), '');
+  assert.ok(!afterRemoval.get().subjects.some(subject => subject.id === 'anglais-com'), 'pas de réinsertion');
+  // E-mail ou identifiant de chapitre déjà pris : aucun ajout, état chargé tel quel.
+  const collisions = [
+    state => { state.users.push({ ...state.users.find(user => user.id === 't1'), id: 'stu-x', role: 'student', email: 'fatine.ouahtita@encg-casablanca.demo', encg: 'Casablanca', level: 'S1', track: 'Tronc commun' }); },
+    state => { state.subjects.find(subject => subject.id === 'marketing').chapters.push({ id: 'anglais-com-2', name: 'Chapitre ajouté' }); }
+  ];
+  for (const collide of collisions) {
+    const { storage: other } = withoutSupervisor(collide);
+    const loaded = createStore(other, clock, memoryStorage());
+    assert.equal(loaded.warning(), '', 'état chargé');
+    assert.ok(!loaded.get().tutors.some(tutor => tutor.id === 't4') && !loaded.get().subjects.some(subject => subject.id === 'anglais-com'), 'aucun ajout');
+  }
+  // Marketing supprimé par l'administration : la tutrice est ajoutée avec l'Anglais commercial seul.
+  const { storage: noMarketing } = withoutSupervisor(state => { state.subjects = state.subjects.filter(subject => subject.id !== 'marketing'); state.tutors.find(tutor => tutor.id === 't3').subjects = ['micro']; state.tutors.find(tutor => tutor.id === 't3').chapters = state.tutors.find(tutor => tutor.id === 't3').chapters.filter(id => id.startsWith('micro-')); });
+  const partial = createStore(noMarketing, clock, memoryStorage());
+  assert.equal(partial.warning(), '');
+  const added = partial.get().tutors.find(tutor => tutor.id === 't4');
+  assert.deepEqual(added.subjects, ['anglais-com']);
+  assert.ok(added.chapters.every(id => id.startsWith('anglais-com-')));
+  // État v3 sans chat ni encadrante : les deux migrations s'appliquent ensemble.
+  const { storage: bare, saved: bareSaved } = withoutSupervisor(state => { delete state.chat; });
+  const both = createStore(bare, clock, memoryStorage());
+  assert.equal(both.warning(), '');
+  const combined = both.get();
+  assert.deepEqual(combined.chat.rooms.map(room => room.id), ['r-tc', 'r-gestion', 'r-commerce', 'r-finance', 'r-compta-gen', 'r-stats']);
+  assert.ok(combined.tutors.some(tutor => tutor.id === 't4') && combined.users.some(user => user.id === 't4') && combined.subjects.some(subject => subject.id === 'anglais-com'));
+  assert.equal(combined.offers.find(offer => offer.id === 'quick').price, 77, 'données conservées');
+  for (const key of ['bookings', 'reviews', 'transactions']) assert.deepEqual(combined[key], bareSaved[key], key);
+});

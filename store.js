@@ -7,6 +7,9 @@
   const SESSION_KEY = 'ontrack-session-v3';
   const LEGACY_KEYS = ['ontrack-demo-v1', 'ontrack-demo-v2'];
   const VERSION = 3;
+  // Encadrante tutrice ajoutée au seed après la v3 (migration additive, voir migrate()).
+  const SUPERVISOR_ID = 't4';
+  const SUPERVISOR_SUBJECT = 'anglais-com';
   const MINUTE = 60000;
   const HOUR = 60 * MINUTE;
   const copy = value => JSON.parse(JSON.stringify(value));
@@ -77,9 +80,36 @@
     let depth = 0;
     const id = prefix => `${prefix}-${time().toString(36)}-${randomHex(4)}`;
     // Un état v3 antérieur aux discussions reçoit le chat du seed, sans réinitialiser le reste.
+    // Un état v3 antérieur à l'encadrante tutrice (t4) reçoit sa matière, son compte et son profil du seed,
+    // sauf si l'e-mail ou un identifiant de chapitre est déjà pris. Matière supprimée par l'admin : rien n'est réinséré.
     function migrate(candidate) {
-      if (candidate && typeof candidate === 'object' && candidate.version === VERSION && candidate.chat === undefined) candidate.chat = data.seed(now()).chat;
+      if (!candidate || typeof candidate !== 'object' || candidate.version !== VERSION) return candidate;
+      const needsChat = candidate.chat === undefined;
+      const needsSupervisor = lacksSupervisor(candidate);
+      if (!needsChat && !needsSupervisor) return candidate;
+      const seeded = data.seed(now());
+      if (needsChat) candidate.chat = seeded.chat;
+      if (needsSupervisor) addSupervisor(candidate, seeded);
       return candidate;
+    }
+    // Ajout une seule fois : un état qui contient déjà t4 n'est pas touché (même si sa matière a été supprimée).
+    const lacksSupervisor = candidate => Array.isArray(candidate.tutors) && Array.isArray(candidate.users) && Array.isArray(candidate.subjects) && !candidate.tutors.some(item => item && item.id === SUPERVISOR_ID);
+    function addSupervisor(candidate, seeded) {
+      const subject = seeded.subjects.find(item => item.id === SUPERVISOR_SUBJECT);
+      const user = seeded.users.find(item => item.id === SUPERVISOR_ID);
+      const tutor = seeded.tutors.find(item => item.id === SUPERVISOR_ID);
+      if (!subject || !user || !tutor) return;
+      const subjects = candidate.subjects;
+      if (subjects.some(item => item && item.id === subject.id)) return;
+      const taken = new Set(subjects.flatMap(item => (item && Array.isArray(item.chapters) ? item.chapters : []).map(chapter => chapter && chapter.id)));
+      if (subject.chapters.some(chapter => taken.has(chapter.id))) return;
+      if (candidate.users.some(item => item && (item.id === user.id || normalizeEmail(item.email) === user.email))) return;
+      subjects.push(subject);
+      // Marketing ou certains de ses chapitres supprimés par l'administration : on ne garde que ce qui existe.
+      const subjectIds = new Set(subjects.map(item => item && item.id));
+      const chapterIds = new Set([...taken, ...subject.chapters.map(chapter => chapter.id)]);
+      candidate.users.push(user);
+      candidate.tutors.push({ ...tutor, subjects: tutor.subjects.filter(id => subjectIds.has(id)), chapters: tutor.chapters.filter(id => chapterIds.has(id)) });
     }
     const persisted = () => JSON.stringify(sessionStore ? { ...state, session: null } : state);
     function readSession(candidate) {
@@ -855,7 +885,8 @@
       updateTutorProfile: input => mutate(() => {
         const tutor = myTutor(true);
         const profile = validateTutorProfile(input || {});
-        assert(state.levels.includes(input.level), 'Niveau d\'études invalide.');
+        // Un niveau hors liste déjà attribué (ex. « Professeure ») peut être conservé, pas choisi.
+        assert(state.levels.includes(input.level) || input.level === tutor.level, 'Niveau d\'études invalide.');
         Object.assign(tutor, profile, { level: input.level });
       }),
       updateTutorSubjects: input => mutate(() => {
@@ -1119,7 +1150,8 @@
         const list = [...new Set((levels || []).map(item => String(item).trim()).filter(Boolean))];
         assert(list.length > 0 && list.length <= 15 && list.every(level => level.length <= 12), 'Indiquez 1 à 15 niveaux.');
         const used = new Set([...state.users.map(user => user.level), ...state.tutors.map(tutor => tutor.level), ...state.subjects.map(subject => subject.level), ...state.programs.map(program => program.level), ...state.orientationProfiles.map(profile => profile.level), ...state.bookings.map(booking => booking.need && booking.need.level)].filter(Boolean));
-        assert([...used].every(level => list.includes(level)), 'Un niveau utilisé par un compte, une matière ou un programme ne peut pas être retiré.');
+        // Seuls les niveaux de la liste actuelle sont protégés : un niveau libre (ex. « Professeure ») n'y figure pas.
+        assert([...used].every(level => list.includes(level) || !state.levels.includes(level)), 'Un niveau utilisé par un compte, une matière ou un programme ne peut pas être retiré.');
         state.levels = list;
       }),
       setOffer: (offerId, input) => mutate(() => {

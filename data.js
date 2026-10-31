@@ -72,7 +72,8 @@
       { id: 'maths', name: 'Mathématiques appliquées', level: 'S1', chapters: ['Fonctions', 'Dérivées', 'Optimisation', 'Matrices'] },
       { id: 'micro', name: 'Microéconomie', level: 'S2', chapters: ['Offre et demande', 'Élasticités', 'Comportement du consommateur', 'Théorie du producteur', 'Structures de marché'] },
       { id: 'stats', name: 'Statistiques', level: 'S3', chapters: ['Statistique descriptive', 'Probabilités', 'Lois usuelles', 'Échantillonnage', 'Régression'] },
-      { id: 'marketing', name: 'Marketing', level: 'S4', chapters: ['Étude de marché', 'Segmentation et ciblage', 'Mix marketing', 'Stratégie marketing'] }
+      { id: 'marketing', name: 'Marketing', level: 'S4', chapters: ['Étude de marché', 'Segmentation et ciblage', 'Mix marketing', 'Stratégie marketing'] },
+      { id: 'anglais-com', name: 'Anglais commercial', level: 'S1', chapters: ['Correspondance professionnelle', 'Réunions et présentations', 'Négociation commerciale', 'Vocabulaire du commerce international'] }
     ].map(subject => ({ ...subject, chapters: subject.chapters.map((name, index) => ({ id: `${subject.id}-${index + 1}`, name })) }));
     const chaptersOf = (...ids) => subjects.filter(subject => ids.includes(subject.id)).flatMap(subject => subject.chapters.map(chapter => chapter.id));
     const created = new Date(date.getTime() - 30 * 86400000).toISOString();
@@ -83,13 +84,17 @@
       user('t1', 'tutor', 'Yassine Amrani', 'yassine.amrani@etu.encg-casablanca.demo', 'Demo2026!', {}),
       user('t2', 'tutor', 'Lina El Fassi', 'lina.elfassi@etu.encg-fes.demo', 'Demo2026!', {}),
       user('t3', 'tutor', 'Adam Idrissi', 'adam.idrissi@etu.encg-tanger.demo', 'Demo2026!', {}),
+      // Encadrante réelle du projet : compte de démonstration en .demo, absent de la connexion rapide (demoAccounts).
+      user('t4', 'tutor', 'Dr Fatine Ouahtita', 'fatine.ouahtita@encg-casablanca.demo', 'Demo2026!', {}),
       user('a1', 'admin', 'Administration ONTRACK', 'admin@ontrack.demo', 'Admin2026!', {})
     ];
     const tutor = (id, name, extra) => ({ id, name, slots: slots.slice(), prioritySlots: [], blocked: [], photoConsent: true, showAge: false, age: null, services: ['quick', 'catch', 'exam', 'stay'], created, ...extra });
     const tutors = [
       tutor('t1', 'Yassine Amrani', { encg: 'Casablanca', level: 'S8', subjects: ['compta-gen', 'compta-ana'], chapters: chaptersOf('compta-gen').concat(['compta-ana-1', 'compta-ana-2']), languages: ['Français', 'Arabe'], modes: ['En ligne', 'Présentiel'], bio: 'Des méthodes concrètes pour comprendre les chiffres, du bilan aux coûts complets.', photo: 'assets/yassine.jpg', age: 23, showAge: true, status: 'approved', prioritySlots: [slots[2], slots[5], slots[8]] }),
       tutor('t2', 'Lina El Fassi', { encg: 'Fès', level: 'S6', subjects: ['stats', 'maths'], chapters: chaptersOf('stats', 'maths'), languages: ['Français', 'Anglais'], modes: ['En ligne'], bio: 'Comprendre le raisonnement, puis pratiquer ensemble sur des exercices de type examen.', photo: 'assets/lina.jpg', age: 22, status: 'approved', prioritySlots: [slots[1], slots[4]] }),
-      tutor('t3', 'Adam Idrissi', { encg: 'Tanger', level: 'S8', subjects: ['marketing', 'micro'], chapters: chaptersOf('marketing', 'micro'), languages: ['Français', 'Arabe', 'Anglais'], modes: ['En ligne', 'Présentiel'], services: ['quick', 'catch'], bio: 'Des cas pratiques pour relier le cours de marketing au terrain.', photo: 'assets/adam.jpg', status: 'pending' })
+      tutor('t3', 'Adam Idrissi', { encg: 'Tanger', level: 'S8', subjects: ['marketing', 'micro'], chapters: chaptersOf('marketing', 'micro'), languages: ['Français', 'Arabe', 'Anglais'], modes: ['En ligne', 'Présentiel'], services: ['quick', 'catch'], bio: 'Des cas pratiques pour relier le cours de marketing au terrain.', photo: 'assets/adam.jpg', status: 'pending' }),
+      // Aucune photo (initiales « FO »), aucun avis ni séance passée ; niveau hors S1–S10 (classé au-dessus de S10 par le filtre).
+      tutor('t4', 'Dr Fatine Ouahtita', { encg: 'Casablanca', level: 'Professeure', subjects: ['anglais-com', 'marketing'], chapters: chaptersOf('anglais-com', 'marketing'), languages: ['Français', 'Anglais'], modes: ['En ligne', 'Présentiel'], bio: 'Professeure à l\'ENCG Casablanca. Anglais commercial et marketing ; accompagne aussi les étudiants dans leur orientation. Encadrante du projet ONTRACK.', photo: '', photoConsent: false, status: 'approved' })
     ];
     const offers = [
       { id: 'quick', name: 'Quick Help', price: 50, minutes: 30, credits: 1, days: 7, frequency: 'Séance ponctuelle', content: 'Explication rapide, clarification d\'un concept ou aide sur un exercice.', objective: 'Résoudre une difficulté ciblée.', audience: 'Étudiants ayant une question urgente ou un blocage précis.' },

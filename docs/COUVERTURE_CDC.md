@@ -70,6 +70,7 @@ Commande : `node --test tests/*.test.cjs`.
 | V12 | views | administration : le gestionnaire admin-program analyse les places et vide les champs non communiqués |
 | V13 | views | présentation : pavé de l'encadrante limité aux faits confirmés, lien en pied de page |
 | V14 | views | discussions : onglet étudiant (rappels, salons, fil aria-live), échappement, gestionnaires et modération admin |
+| V15 | views | encadrante tutrice : trois cartes à l'accueil, profil sans photo, matière, filtre niveau et administration |
 | S37 | store | session par onglet : connexion propre à l'onglet, conservée au rechargement, absente de l'état partagé |
 | S38 | store | discussions : envoi en salon, réponse de persona planifiée entre 2 et 6 s puis distribuée par tick |
 | S39 | store | discussions : réservées aux étudiants, 1 à 500 caractères, coordonnées publiées avec un avertissement |
@@ -78,6 +79,8 @@ Commande : `node --test tests/*.test.cjs`.
 | S42 | store | signalement et modération : file admin, masquage puis rétablissement |
 | S43 | store | suppression de compte : messages anonymisés, fils privés et réponses planifiées supprimés |
 | S44 | store | migration : un état v3 sans collection chat reçoit le chat du seed, sans réinitialiser le reste |
+| S45 | store | encadrante tutrice : réservable en Anglais commercial avec les créneaux de démonstration, niveau conservé |
+| S46 | store | migration : un état v3 sans l'encadrante reçoit sa matière, son compte et son profil, une seule fois |
 | A1 | assistant | 15 intentions et un repli (16 cas) : une phrase française et une phrase anglaise reconnues |
 | A2 | assistant | donnée modifiée par l'admin : le nouveau tarif est cité tel quel |
 | A3 | assistant | personnalisé : Omar voit ses crédits Stay restants, d'après ses forfaits actifs |
@@ -471,6 +474,7 @@ Ajouts demandés par le porteur du projet après la livraison ([sprint change pr
 |---|---|---|---|
 | Encadrement académique : pavé de Dr Fatine Ouahtita (faits publics confirmés, monogramme « FO », ni photo ni coordonnées) et lien en pied de page | `#presentation`, pied de page | V13 | 🟡 implémenté ; contenu à faire valider par l'intéressée avant toute fusion dans `main` |
 | Discussions entre étudiants : salons par filière et par matière, discussions privées avec un étudiant réel ou une persona « (fictive) » (réponse automatique 2 à 6 s plus tard), signalement ; rappel permanent « N'échangez ni coordonnées, ni documents, ni données personnelles », avertissement si un message contient une adresse e-mail ou un numéro ; session propre à chaque onglet (`sessionStorage`) et synchronisation en direct entre deux onglets du même navigateur (événement `storage`) ; modération des seuls messages signalés (masquer, rétablir) ; règles dans les CGU (art. 10) et conservation locale dans la politique de confidentialité ; aucun serveur, aucun échange entre appareils | `#etudiant/discussions[/salon ou fil]`, `#admin/moderation` (« Messages signalés »), `#cgu`, `#confidentialite` | S37 à S44, V14 ; I18n (rendu anglais de l'onglet et de la modération) ; contrôle navigateur (deux onglets Chrome sans interface, 390 px), hors dépôt | ✅ 🟡 temps réel limité aux onglets d'un même navigateur |
+| Encadrante tutrice : Dr Fatine Ouahtita ajoutée aux tuteurs validés (profil `t4`, ENCG Casablanca, niveau affiché « Professeure », initiales « FO », sans photo, sans avis ni séance passée), nouvelle matière « Anglais commercial » (S1, 4 chapitres) et Marketing ; compte tuteur en `.demo` absent de la connexion rapide ; accueil à trois cartes avec une mention qui distingue les profils étudiants fictifs de l'encadrante réelle ; niveau hors S1–S10 classé au-dessus de S10 dans le filtre du catalogue ; migration additive des états v3 existants (sans changer `VERSION`) | `#accueil`, `#catalogue`, `#profil/t4`, `#matieres/anglais-com`, `#reserver`, `#admin/tuteurs` | S45, S46, V15 | 🟡 implémenté ; à faire valider par l'intéressée avant toute fusion dans `main` |
 | Assistant ONTRACK : chatbot simulé à règles (`assistant.js`), 15 intentions et un repli (16 cas) en français et en anglais, réponses calculées à partir de l'état et personnalisées pour l'utilisateur connecté ; sans réseau ni IA, historique en mémoire d'onglet | bulle « Assistant » sur toutes les pages (panneau `role="dialog"`, Échap ferme) | A1 à A11 ; I18n (scan de `assistant.js`) | ✅ |
 
 ## Limites de simulation (récapitulatif)
