@@ -69,6 +69,15 @@ Commande : `node --test tests/*.test.cjs`.
 | V11 | views | inscription : filières regroupées par cycle et filtrées selon le niveau choisi |
 | V12 | views | administration : le gestionnaire admin-program analyse les places et vide les champs non communiqués |
 | V13 | views | présentation : pavé de l'encadrante limité aux faits confirmés, lien en pied de page |
+| V14 | views | discussions : onglet étudiant (rappels, salons, fil aria-live), échappement, gestionnaires et modération admin |
+| S37 | store | session par onglet : connexion propre à l'onglet, conservée au rechargement, absente de l'état partagé |
+| S38 | store | discussions : envoi en salon, réponse de persona planifiée entre 2 et 6 s puis distribuée par tick |
+| S39 | store | discussions : réservées aux étudiants, 1 à 500 caractères, coordonnées publiées avec un avertissement |
+| S40 | store | discussions privées : Salma → Omar d'un onglet à l'autre, notification, invisibles pour un tiers |
+| S41 | store | deux onglets : écritures alternées sans perte de message, état relu avant chaque écriture |
+| S42 | store | signalement et modération : file admin, masquage puis rétablissement |
+| S43 | store | suppression de compte : messages anonymisés, fils privés et réponses planifiées supprimés |
+| S44 | store | migration : un état v3 sans collection chat reçoit le chat du seed, sans réinitialiser le reste |
 | A1 | assistant | 15 intentions et un repli (16 cas) : une phrase française et une phrase anglaise reconnues |
 | A2 | assistant | donnée modifiée par l'admin : le nouveau tarif est cité tel quel |
 | A3 | assistant | personnalisé : Omar voit ses crédits Stay restants, d'après ses forfaits actifs |
@@ -461,6 +470,7 @@ Ajouts demandés par le porteur du projet après la livraison ([sprint change pr
 | Extension | Écran | Tests | Statut |
 |---|---|---|---|
 | Encadrement académique : pavé de Dr Fatine Ouahtita (faits publics confirmés, monogramme « FO », ni photo ni coordonnées) et lien en pied de page | `#presentation`, pied de page | V13 | 🟡 implémenté ; contenu à faire valider par l'intéressée avant toute fusion dans `main` |
+| Discussions entre étudiants : salons par filière et par matière, discussions privées avec un étudiant réel ou une persona « (fictive) » (réponse automatique 2 à 6 s plus tard), signalement ; rappel permanent « N'échangez ni coordonnées, ni documents, ni données personnelles », avertissement si un message contient une adresse e-mail ou un numéro ; session propre à chaque onglet (`sessionStorage`) et synchronisation en direct entre deux onglets du même navigateur (événement `storage`) ; modération des seuls messages signalés (masquer, rétablir) ; règles dans les CGU (art. 10) et conservation locale dans la politique de confidentialité ; aucun serveur, aucun échange entre appareils | `#etudiant/discussions[/salon ou fil]`, `#admin/moderation` (« Messages signalés »), `#cgu`, `#confidentialite` | S37 à S44, V14 ; I18n (rendu anglais de l'onglet et de la modération) ; contrôle navigateur (deux onglets Chrome sans interface, 390 px), hors dépôt | ✅ 🟡 temps réel limité aux onglets d'un même navigateur |
 | Assistant ONTRACK : chatbot simulé à règles (`assistant.js`), 15 intentions et un repli (16 cas) en français et en anglais, réponses calculées à partir de l'état et personnalisées pour l'utilisateur connecté ; sans réseau ni IA, historique en mémoire d'onglet | bulle « Assistant » sur toutes les pages (panneau `role="dialog"`, Échap ferme) | A1 à A11 ; I18n (scan de `assistant.js`) | ✅ |
 
 ## Limites de simulation (récapitulatif)
@@ -468,10 +478,11 @@ Ajouts demandés par le porteur du projet après la livraison ([sprint change pr
 - Aucun paiement réel : passerelle CMI/Payzone simulée, aucune donnée bancaire saisie ; secret de signature présent côté client.
 - Aucun e-mail réel : boîte mail simulée (`#boite-mail`), accessible à tous les visiteurs de la démo.
 - Aucune visioconférence, aucune intégration universitaire. Les destinations d'orientation proviennent de la liste communiquée par l'ENCG (2025-2026) ; leurs critères d'admission non communiqués sont affichés « à confirmer », jamais inventés.
-- Pas de HTTPS en `file:` ; pas de serveur ni de base de données : sessions et données dans `localStorage` (clé `ontrack-demo-v3`), propres à un seul navigateur, avec repli mémoire.
+- Pas de HTTPS en `file:` ; pas de serveur ni de base de données : données dans `localStorage` (clé `ontrack-demo-v3`) et session dans le `sessionStorage` de chaque onglet (clé `ontrack-session-v3`), propres à un seul navigateur, avec repli mémoire.
 - Contrôles d'accès appliqués dans le navigateur uniquement ; à reproduire côté serveur en production.
 - Pièces jointes : métadonnées seulement (nom, type, taille).
 - QR Study Pods : aperçu visuel non scannable, prototype réservé à l'administration.
+- Discussions entre étudiants : messages conservés dans le navigateur ; direct entre onglets d'un même navigateur seulement, aucun échange entre appareils ; personas fictives à réponses préprogrammées.
 - Assistant ONTRACK : réponses préprogrammées par mots-clés, sans intelligence artificielle ni envoi de données ; une question hors des 15 intentions reçoit le repli : « Je n'ai pas compris » et des suggestions.
 - Routage par fragment (`#…`) ; le plan de site décrit les chemins propres prévus en production.
 - Aucun outil d'analyse d'audience ; optimisation des requêtes base de données non applicable.

@@ -77,7 +77,7 @@ test('chaque message d\'erreur du store a sa traduction anglaise', () => {
 test('toutes les routes et tous les parcours se rendent en anglais sans libellé manquant', () => {
   const ACCOUNTS = { student: ['salma.benali@etu.encg-casablanca.demo', 'Demo2026!'], subscriber: ['omar.tazi@etu.encg-settat.demo', 'Demo2026!'], tutor: ['yassine.amrani@etu.encg-casablanca.demo', 'Demo2026!'], pending: ['adam.idrissi@etu.encg-tanger.demo', 'Demo2026!'], admin: ['admin@ontrack.demo', 'Admin2026!'] };
   const PUBLIC = [['accueil'], ['accueil', 'offres'], ['presentation'], ['connexion'], ['inscription'], ['inscription-tuteur'], ['verification'], ['mot-de-passe-oublie'], ['matieres'], ['matieres', 'stats'], ['catalogue'], ['profil', 't1'], ['profil', 't3'], ['orientation'], ['pods'], ['contact'], ['cgu'], ['confidentialite'], ['mentions'], ['boite-mail']];
-  const STUDENT = [['reserver'], ['reserver', 't1'], ['paiement', 'inconnu'], ['confirmation', 'inconnu'], ...['apercu', 'seances', 'historique', 'forfaits', 'progression', 'comptes-rendus', 'notifications', 'profil'].map(tab => ['etudiant', tab]), ['orientation']];
+  const STUDENT = [['reserver'], ['reserver', 't1'], ['paiement', 'inconnu'], ['confirmation', 'inconnu'], ...['apercu', 'seances', 'historique', 'forfaits', 'progression', 'comptes-rendus', 'discussions', 'notifications', 'profil'].map(tab => ['etudiant', tab]), ['orientation']];
   const TUTOR = ['apercu', 'seances', 'profil', 'matieres', 'disponibilites', 'avis', 'historique', 'remuneration'].map(tab => ['tuteur', tab]);
   const ADMIN = ['apercu', 'etudiants', 'tuteurs', 'domaines', 'referentiel', 'tarifs', 'politique', 'reservations', 'paiements', 'remunerations', 'moderation', 'orientation', 'pods', 'messages', 'sauvegarde'].map(tab => ['admin', tab]);
   const spaces = { student: '#etudiant/apercu', tutor: '#tuteur/apercu', admin: '#admin/apercu' };
@@ -115,6 +115,11 @@ test('toutes les routes et tous les parcours se rendent en anglais sans libellé
     store.saveOrientationProfile({ encg: 'Settat', level: 'S7', track: 'Finance', average: '13', validated: '', languages: [{ language: 'Français', level: 'C1' }], countries: ['France'], programType: 'Indifférent' });
     store.requestConsultation({ programIds: ['hec-liege'], topic: 'Aide pour mon dossier', availability: '' });
     render(['orientation']);
+    // Discussions : message, fil privé avec une persona, formulaire de signalement ouvert, message signalé.
+    store.chatPost({ roomId: 'r-tc', text: 'Bonjour' });
+    const personaThread = store.chatStartThread('p-ines');
+    store.chatReport('cm-seed-1', 'Publicité ou spam');
+    for (const route of [['etudiant', 'discussions'], ['etudiant', 'discussions', personaThread.id]]) render(route, { ...blank(), chatReport: 'cm-seed-2', chatDraft: {} });
     // Tuteur après la fin d'une séance (compte rendu), période bloquée, avis signalé.
     instant = new Date(Date.parse(store.get().bookings.find(item => item.id === 'b-seed-3').start) + 2 * 3600000);
     as('tutor');

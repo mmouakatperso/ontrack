@@ -3,10 +3,13 @@
   const O = window.Ontrack;
   const { escape, head, t, msg } = O.ui;
   let storage;
+  let tabSession;
   try { storage = window.localStorage; } catch (error) { storage = null; }
-  const store = OntrackStore.createStore(storage);
+  try { tabSession = window.sessionStorage; } catch (error) { tabSession = null; }
+  // État partagé dans localStorage, session propre à l'onglet dans sessionStorage.
+  const store = OntrackStore.createStore(storage, undefined, tabSession);
   const main = document.getElementById('main');
-  const blankMemory = () => ({ filters: {}, subjectFilter: '', wizard: null, mailbox: '', pendingEmail: '', resetEmail: '', podsEmail: '', returnTo: '', gateway: {}, lastQr: null, notificationTest: '', adminStatus: '', assistant: [], assistantOwner: null });
+  const blankMemory = () => ({ filters: {}, subjectFilter: '', wizard: null, mailbox: '', pendingEmail: '', resetEmail: '', podsEmail: '', returnTo: '', gateway: {}, lastQr: null, notificationTest: '', adminStatus: '', assistant: [], assistantOwner: null, chatDraft: {}, chatReport: null, chatScroll: null, chatScrollEnd: false });
   const memory = blankMemory();
   // Efface toute la mémoire propre à l'onglet (déconnexion, réinitialisation, restauration).
   O.clearMemory = () => { for (const key of Object.keys(memory)) delete memory[key]; Object.assign(memory, blankMemory()); renderAssistant(); };
@@ -73,6 +76,9 @@
       return;
     }
     const ctx = context(params);
+    // Position du fil de discussion avant un réaffichage de la même page (rétablie par la vue si l'utilisateur lisait plus haut).
+    const log = document.getElementById('chat-log');
+    memory.chatScroll = log && location.hash === lastRoute ? { top: log.scrollTop, atBottom: log.scrollHeight - log.scrollTop - log.clientHeight < 40 } : null;
     let html;
     if (definition) {
       try { html = definition.render(ctx); }
@@ -87,6 +93,28 @@
     for (const link of document.querySelectorAll('[data-nav]')) { if (link.dataset.nav === navKey) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); }
     if (location.hash !== lastRoute) { lastRoute = location.hash; main.focus({ preventScroll: true }); window.scrollTo(0, 0); }
     if (definition && definition.after) definition.after(ctx, main);
+    scheduleChat(user);
+  }
+  // Discussions : seule cette vue se réaffiche d'elle-même (autre onglet, réponse attendue), en gardant
+  // le brouillon (memory.chatDraft), le champ actif et la position du curseur.
+  const onDiscussions = () => /^#etudiant\/discussions(\/|$)/.test(location.hash);
+  let chatTimer = null;
+  function rerenderChat() {
+    const active = document.activeElement;
+    const focusId = active && main.contains(active) && active.id ? active.id : '';
+    const caret = focusId && typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null;
+    render();
+    const element = focusId ? document.getElementById(focusId) : null;
+    if (!element) return;
+    element.focus({ preventScroll: true });
+    if (caret && typeof element.setSelectionRange === 'function') try { element.setSelectionRange(caret[0], caret[1]); } catch (error) { /* champ sans curseur */ }
+  }
+  // Minuterie d'une seconde, active seulement sur Discussions quand une réponse simulée est attendue.
+  function scheduleChat(user) {
+    clearTimeout(chatTimer);
+    chatTimer = null;
+    if (!onDiscussions() || !user || user.role !== 'student') return;
+    if (store.chatView().expecting) chatTimer = setTimeout(rerenderChat, 1000);
   }
   function outcome(result) {
     if (result === false) return;
@@ -99,6 +127,8 @@
     }
     render();
     feedback(value.message || t('Modification enregistrée.'), value.error);
+    const focus = value.focus ? document.getElementById(value.focus) : null;
+    if (focus) focus.focus();
   }
   document.addEventListener('submit', event => {
     const form = event.target;
@@ -119,6 +149,11 @@
     try { outcome(handler(context(), target.dataset, target)); }
     catch (error) { feedback(error.message, true); }
   });
+  // Brouillons des discussions (message en cours, motif de signalement) conservés en mémoire d'onglet.
+  document.addEventListener('input', event => {
+    const target = event.target.closest && event.target.closest('[data-draft]');
+    if (target) memory.chatDraft[target.dataset.draft] = target.value;
+  });
   document.addEventListener('change', event => {
     const target = event.target.closest('[data-change]');
     if (!target) return;
@@ -137,7 +172,13 @@
   O.action('lang', (ctx, dataset) => { O.i18n.set(dataset.lang); applyLanguage(); return t('Site affiché en français.'); });
   window.addEventListener('hashchange', () => { if (location.hash !== feedbackRoute) feedback(''); render(); });
   window.addEventListener('storage', event => {
-    if (event.key === OntrackStore.KEY) feedback(t('Les données ont changé dans un autre onglet. Rechargez cette page avant de poursuivre.'), true);
+    // Autre onglet : état relu sans bruit ; seule la vue Discussions se réaffiche, les autres formulaires restent intacts.
+    if (event.key === OntrackStore.KEY) {
+      const changed = store.refresh();
+      document.getElementById('storage-warning').textContent = msg(store.warning());
+      if (changed && onDiscussions()) rerenderChat();
+      else if (changed) account(store.currentUser());
+    }
     if (event.key === O.i18n.STORAGE_KEY && event.newValue && event.newValue !== O.i18n.get()) { O.i18n.set(event.newValue); applyLanguage(); render(); }
   });
   // Assistant ONTRACK : bulle et panneau hors de <main>. L'historique (memory.assistant) reste en mémoire

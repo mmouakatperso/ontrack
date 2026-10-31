@@ -46,6 +46,17 @@ Sur **Orientation**, complétez le profil (ENCG, niveau, filière, moyenne, mati
 ### Assistant ONTRACK
 Le bouton **Assistant**, en bas à droite de chaque page, ouvre un panneau de questions-réponses (au clavier : Tab jusqu'au bouton, puis Entrée ; **Échap** ferme le panneau et rend le focus au bouton). Posez une question en français ou en anglais (1 à 300 caractères), ou choisissez une suggestion : tarifs, réservation, annulation, paiement, forfaits et crédits, progression, destinations et places, filières, devenir tuteur, Study Pods, compte et mot de passe, données personnelles, contact, projet et encadrement. Les réponses reprennent les données actuelles de la démonstration (un tarif modifié par l'administration apparaît aussitôt) et proposent des liens vers les pages utiles. Connecté, vous obtenez des réponses personnalisées (par exemple vos crédits Stay restants) ; un visiteur est invité à se connecter. L'assistant est **simulé** : réponses préprogrammées, sans intelligence artificielle ni envoi de données. Il ne promet jamais d'admission. Si la question n'est pas comprise, il propose quatre suggestions. L'historique reste dans l'onglet : il disparaît au rechargement, à la déconnexion, à tout changement de compte et à la réinitialisation de la démo.
 
+### Discussions entre étudiants
+**Mon espace → Discussions** (fonction simulée, hors cahier des charges) :
+1. **Salons** : un salon par filière (Tronc commun, Gestion, Commerce, Finance) et par matière (Comptabilité générale, Statistiques). Le salon de votre filière est mis en avant (« Votre filière ») et s'ouvre par défaut.
+2. **Écrire** : saisissez un message de 1 à 500 caractères puis **Envoyer**. Votre brouillon est conservé si la page se met à jour pendant la saisie. Un message contenant une adresse e-mail ou un numéro de téléphone est publié, mais avec un avertissement : n'échangez ni coordonnées, ni documents, ni données personnelles (rappel affiché en permanence).
+3. **Personas** : Inès, Hiba, Yasmine et Nour portent la mention « (fictive) ». Ce ne sont pas de vrais étudiants : elles répondent automatiquement, 2 à 6 secondes après votre message, dans un salon ou en discussion privée (« … est en train d'écrire… »).
+4. **Discussion privée** : **Écrire à…**, choisissez un étudiant ou une persona, puis **Ouvrir la discussion**. Elle n'est visible que par vous deux ; le destinataire reçoit une notification à chaque message.
+5. **Signaler** un message d'un autre participant : choisissez le motif, puis **Envoyer le signalement**. L'administration ne voit que les messages signalés.
+6. **Deux onglets** : chaque onglet a sa propre session. Connectez Salma dans un onglet et Omar dans un autre : leurs messages apparaissent en direct, sans recharger la page. Limite : aucun échange entre appareils ni entre navigateurs différents.
+
+À la suppression de votre compte, vos discussions privées sont effacées et vos messages de salon s'affichent « Compte supprimé ». Règles complètes : **Conditions d'utilisation**, article 10.
+
 ### Mot de passe oublié
 **Connexion → Mot de passe oublié** : saisissez l'adresse (le message est identique que le compte existe ou non), relevez le code dans la boîte mail, choisissez un nouveau mot de passe. Les sessions ouvertes sont fermées. Après 5 échecs de connexion consécutifs, la connexion est bloquée 15 minutes.
 
@@ -73,7 +84,7 @@ Le bouton **Assistant**, en bas à droite de chaque page, ouvre un panneau de qu
 | Réservations | Filtre par statut, annulation exceptionnelle avec remboursement |
 | Paiements | Prestataire et frais, historique des transactions, tests de rejeu et de signature invalide |
 | Rémunérations | Phase et grille, enregistrement des versements |
-| Modération | File des avis signalés : masquer ou rejeter le signalement |
+| Modération | File des avis signalés : masquer ou rejeter le signalement. **Messages signalés** des discussions (lieu, auteur, motif, auteur du signalement) : **Masquer** (le message devient « Message masqué par la modération » pour les étudiants) ou **Rétablir**. Les messages non signalés et les discussions privées ne sont pas visibles |
 | Orientation | Destinations (création, modification, visibilité) : laisser vide un champ non communiqué (il s'affiche « à confirmer ») ; places à raison d'une ligne « libellé : nombre » par liste (jamais de total) ; lien officiel `https://` obligatoire ; demandes d'entretien |
 | Study Pods | Lieux, inscrits aux actualités, prototype QR (génération, validation unique) |
 | Messages | Messages de contact, journal |
@@ -84,11 +95,11 @@ Le bouton **Assistant**, en bas à droite de chaque page, ouvre un panneau de qu
 ### Sauvegarder
 1. Connectez-vous en administrateur, ouvrez **Administration → Sauvegarde**.
 2. Cliquez **Exporter les données (JSON)** : un fichier `ontrack-sauvegarde-AAAA-MM-JJ.json` est téléchargé.
-3. Conservez-le hors de l'appareil (support chiffré). Il contient des données personnelles et des hachages de mots de passe : ne le partagez pas.
+3. Conservez-le hors de l'appareil (support chiffré). Il contient des données personnelles et des hachages de mots de passe : ne le partagez pas. Les discussions privées entre étudiants n'y figurent pas.
 
 ### Restaurer
 1. **Administration → Sauvegarde → Restaurer une sauvegarde**, choisissez le fichier, cochez la confirmation, cliquez **Restaurer**.
-2. Le fichier est entièrement validé avant remplacement ; un fichier illisible ou d'une autre version est refusé sans modifier les données. Les sauvegardes v1 et v2 (antérieures aux filières et destinations réelles) ne peuvent pas être importées : elles sont refusées avec le message « Version locale incompatible ».
+2. Le fichier est entièrement validé avant remplacement ; un fichier illisible ou d'une autre version est refusé sans modifier les données. Les sauvegardes v1 et v2 (antérieures aux filières et destinations réelles) ne peuvent pas être importées : elles sont refusées avec le message « Version locale incompatible ». Les discussions privées en cours sont conservées ; une sauvegarde antérieure aux discussions reçoit les salons du jeu initial.
 
 ### Réinitialiser
 **Réinitialiser la démo** (pied de page, mentions légales ou sauvegarde) recharge le jeu initial après confirmation. Les créneaux sont recalculés à partir du jour courant.
@@ -98,5 +109,5 @@ Un bandeau signale le **mode mémoire** : la démonstration reste utilisable, ma
 
 ## 5. Bonnes pratiques
 - Utilisez des identités inventées ; ne saisissez ni données bancaires ni mots de passe réels.
-- Un seul onglet à la fois pour modifier les données (un avertissement apparaît si un autre onglet les modifie).
+- Plusieurs onglets peuvent être ouverts : chacun a sa propre session, et l'état est relu avant chaque modification. Un lien ouvert dans un nouvel onglet démarre donc déconnecté, un onglet dupliqué reprend la session de l'onglet d'origine, et la déconnexion ne ferme que l'onglet courant : déconnectez-vous dans chaque onglet. Une réinitialisation du mot de passe ferme en revanche les sessions du compte dans tous les onglets. Seule la vue **Discussions** se met à jour d'elle-même ; les autres pages affichent les changements d'un autre onglet à la prochaine action.
 - Les données restent sur cet appareil et ce navigateur.

@@ -4,6 +4,7 @@
   const data = isNode ? require('./data.js') : root.OntrackData;
   const { sha256 } = isNode ? require('./sha256.js') : root.OntrackSha256;
   const KEY = 'ontrack-demo-v3';
+  const SESSION_KEY = 'ontrack-session-v3';
   const LEGACY_KEYS = ['ontrack-demo-v1', 'ontrack-demo-v2'];
   const VERSION = 3;
   const MINUTE = 60000;
@@ -57,13 +58,42 @@
   }
   const normalizeEmail = value => String(value || '').trim().toLowerCase();
 
-  function createStore(storage, clock) {
+  // Coordonnées repérées dans un message de discussion : adresse e-mail ou numéro de 9 chiffres ou plus.
+  const CONTACT_RULE = /[^\s@]+@[^\s@]+\.[a-z]{2,}|(?:\+|00)?(?:\d[\s.-]?){8,}\d/i;
+  const CHAT_MAX = 500;
+  const UNREADABLE = 'Données modifiées dans un autre onglet illisibles : rechargez la page avant de poursuivre.';
+  // Notification de message privé (exclue de la sauvegarde, comme les discussions privées).
+  const PRIVATE_NOTICE = 'Nouveau message privé de ';
+
+  // storage : état partagé (localStorage). sessionStore (facultatif) : session propre à l'onglet (sessionStorage),
+  // exclue de l'état partagé ; sans lui, la session reste dans l'état (comportement historique, tests Node).
+  function createStore(storage, clock, sessionStore) {
     const now = clock || (() => new Date());
     const time = () => now().getTime();
     const stamp = () => now().toISOString();
     let state = data.seed(now());
     let warning = '';
+    let lastSaved = null;
+    let depth = 0;
     const id = prefix => `${prefix}-${time().toString(36)}-${randomHex(4)}`;
+    // Un état v3 antérieur aux discussions reçoit le chat du seed, sans réinitialiser le reste.
+    function migrate(candidate) {
+      if (candidate && typeof candidate === 'object' && candidate.version === VERSION && candidate.chat === undefined) candidate.chat = data.seed(now()).chat;
+      return candidate;
+    }
+    const persisted = () => JSON.stringify(sessionStore ? { ...state, session: null } : state);
+    function readSession(candidate) {
+      try {
+        const raw = sessionStore.getItem(SESSION_KEY);
+        const session = raw ? JSON.parse(raw) : null;
+        return session && typeof session.userId === 'string' && typeof session.expires === 'string' && candidate.users.some(user => user.id === session.userId) ? session : null;
+      } catch (error) { return null; }
+    }
+    function writeSession() {
+      if (!sessionStore) return;
+      try { if (state.session) sessionStore.setItem(SESSION_KEY, JSON.stringify(state.session)); else sessionStore.removeItem(SESSION_KEY); }
+      catch (error) { /* session conservée en mémoire seulement */ }
+    }
 
     function valid(candidate) {
       assert(candidate && candidate.version === VERSION, 'Version locale incompatible.');
@@ -81,7 +111,7 @@
       const chapterIds = new Set(candidate.subjects.flatMap(subject => subject.chapters.map(chapter => chapter.id)));
       assert(chapterIds.size === candidate.subjects.reduce((total, subject) => total + subject.chapters.length, 0), 'Chapitres dupliqués.');
       const subjectIds = new Set(candidate.subjects.map(subject => subject.id));
-      for (const user of candidate.users) assert(strings(user, ['id', 'role', 'name', 'email', 'salt', 'hash', 'status']) && ['student', 'tutor', 'admin'].includes(user.role) && typeof user.verified === 'boolean' && ['active', 'suspended'].includes(user.status), 'Compte invalide.');
+      for (const user of candidate.users) assert(strings(user, ['id', 'role', 'name', 'email', 'salt', 'hash', 'status']) && ['student', 'tutor', 'admin'].includes(user.role) && typeof user.verified === 'boolean' && ['active', 'suspended'].includes(user.status) && (user.sessionsRevokedAt === undefined || Number.isFinite(Date.parse(user.sessionsRevokedAt))), 'Compte invalide.');
       assert(new Set(candidate.users.map(user => user.email)).size === candidate.users.length, 'Adresses dupliquées.');
       assert(candidate.users.some(user => user.role === 'admin'), 'Administrateur manquant.');
       assert(candidate.session === null || (strings(candidate.session, ['userId', 'expires']) && candidate.users.some(user => user.id === candidate.session.userId)), 'Session invalide.');
@@ -108,28 +138,80 @@
       for (const notification of candidate.notifications) assert(strings(notification, ['id', 'userId', 'text', 'created']), 'Notification invalide.');
       for (const message of candidate.messages) assert(strings(message, ['id', 'name', 'text', 'created']), 'Message invalide.');
       assert(candidate.pods && Array.isArray(candidate.pods.locations) && Array.isArray(candidate.pods.subscribers) && Array.isArray(candidate.pods.prototype), 'Study Pods invalides.');
+      validChat(candidate);
       return candidate;
+    }
+    function validChat(candidate) {
+      const chat = candidate.chat;
+      const lists = ['rooms', 'personas', 'messages', 'threads', 'pending'];
+      assert(chat && typeof chat === 'object' && lists.every(key => Array.isArray(chat[key])), 'Discussions invalides.');
+      for (const key of lists) assert(new Set(chat[key].map(item => item && item.id)).size === chat[key].length, 'Identifiants locaux dupliqués.');
+      const strings = (item, keys) => item && typeof item === 'object' && keys.every(key => typeof item[key] === 'string');
+      for (const room of chat.rooms) assert(strings(room, ['id', 'name', 'kind']) && ['track', 'subject'].includes(room.kind), 'Salon invalide.');
+      const userIds = new Set(candidate.users.map(user => user.id));
+      for (const persona of chat.personas) assert(strings(persona, ['id', 'name']) && persona.name.includes('(fictive)') && !userIds.has(persona.id), 'Persona invalide.');
+      const people = new Set([...userIds, ...chat.personas.map(persona => persona.id)]);
+      for (const thread of chat.threads) assert(strings(thread, ['id', 'created']) && Array.isArray(thread.members) && thread.members.length === 2 && thread.members[0] !== thread.members[1] && thread.members.every(member => people.has(member)), 'Discussion privée invalide.');
+      const roomIds = new Set(chat.rooms.map(room => room.id));
+      const threadIds = new Set(chat.threads.map(thread => thread.id));
+      const target = item => (typeof item.roomId === 'string' && roomIds.has(item.roomId) && !item.threadId) || (typeof item.threadId === 'string' && threadIds.has(item.threadId) && !item.roomId);
+      for (const message of chat.messages) assert(strings(message, ['id', 'fromName', 'text', 'created', 'reportReason']) && target(message) && (message.fromId === null || typeof message.fromId === 'string') && message.text.length >= 1 && message.text.length <= CHAT_MAX && typeof message.reported === 'boolean' && typeof message.hidden === 'boolean', 'Message de discussion invalide.');
+      for (const item of chat.pending) assert(strings(item, ['id', 'due', 'personaId', 'text']) && Number.isFinite(Date.parse(item.due)) && chat.personas.some(persona => persona.id === item.personaId) && target(item), 'Réponse planifiée invalide.');
     }
 
     try {
       assert(storage, 'Stockage indisponible.');
       const saved = storage.getItem(KEY);
-      if (saved) state = valid(JSON.parse(saved));
-      storage.setItem(KEY, JSON.stringify(state));
+      if (saved) state = valid(migrate(JSON.parse(saved)));
+      if (sessionStore) state.session = readSession(state);
+      lastSaved = persisted();
+      storage.setItem(KEY, lastSaved);
       for (const legacy of LEGACY_KEYS) if (typeof storage.removeItem === 'function' && storage.getItem(legacy) !== null && storage.getItem(legacy) !== undefined) storage.removeItem(legacy);
     } catch (error) {
       warning = 'Stockage indisponible ou invalide : mode mémoire actif. Les changements seront perdus au rechargement.';
       storage = null;
+      if (sessionStore) state.session = readSession(state);
     }
+    // N'écrit l'état partagé que s'il a changé : une simple navigation (session prolongée dans l'onglet)
+    // ne déclenche donc aucun événement `storage` dans les autres onglets.
     function save() {
-      if (storage) try { storage.setItem(KEY, JSON.stringify(state)); } catch (error) { storage = null; warning = 'Échec de sauvegarde : mode mémoire actif. Une ancienne sauvegarde peut subsister, y compris après suppression du compte. Effacez les données du site dans le navigateur.'; }
+      writeSession();
+      if (!storage) return;
+      const serialized = persisted();
+      if (serialized === lastSaved) return;
+      try { storage.setItem(KEY, serialized); lastSaved = serialized; } catch (error) { storage = null; warning = 'Échec de sauvegarde : mode mémoire actif. Une ancienne sauvegarde peut subsister, y compris après suppression du compte. Effacez les données du site dans le navigateur.'; }
     }
+    // Relit l'état partagé écrit par un autre onglet, en gardant la session de cet onglet.
+    function refresh() {
+      if (!storage) return false;
+      let saved;
+      try { saved = storage.getItem(KEY); } catch (error) { return false; }
+      if (!saved || saved === lastSaved) return false;
+      try {
+        const candidate = migrate(JSON.parse(saved));
+        const session = state.session;
+        candidate.session = session && Array.isArray(candidate.users) && candidate.users.some(user => user.id === session.userId) ? session : null;
+        state = valid(candidate);
+        lastSaved = saved;
+        if (warning === UNREADABLE) warning = '';
+        return true;
+      } catch (error) {
+        warning = UNREADABLE;
+        return false;
+      }
+    }
+    // L'état partagé est relu avant chaque écriture (transaction la plus externe seulement).
     function transaction(action) {
+      if (depth === 0) refresh();
+      depth += 1;
       const before = copy(state);
       try { const result = action(); valid(state); save(); return copy(result === undefined ? null : result); }
       catch (error) { state = before; throw error; }
+      finally { depth -= 1; }
     }
+    const sync = () => { if (depth === 0) refresh(); };
     function mutate(action) {
+      sync();
       housekeeping();
       return transaction(() => { const result = action(); touchSession(); return result; });
     }
@@ -155,7 +237,8 @@
       const session = state.session;
       if (!session || Date.parse(session.expires) <= time()) return null;
       const user = findUser(session.userId);
-      return user && user.verified && user.status === 'active' ? user : null;
+      const revoked = user && user.sessionsRevokedAt && !(Date.parse(session.created) >= Date.parse(user.sessionsRevokedAt));
+      return user && user.verified && user.status === 'active' && !revoked ? user : null;
     }
     function touchSession() { const user = sessionUser(); if (user) state.session.expires = new Date(time() + policy().sessionHours * HOUR).toISOString(); }
     function me(...roles) {
@@ -340,7 +423,53 @@
             if (student) mail(student.email, 'package-info', `Votre forfait ${pack.name} a expiré`, [`Bonjour ${student.name},`, `Votre forfait ${pack.name} est arrivé à échéance le ${formatDate(pack.expires)}.`, `${pack.remaining} séance(s) non utilisée(s) : non reportée(s), conformément à la politique affichée avant l'achat.`, 'Aucun renouvellement automatique n\'a été effectué.']);
           }
         }
+        deliverChat();
       });
+    }
+
+    // --- Discussions entre étudiants ------------------------------------------
+    const findPersona = personaId => state.chat.personas.find(persona => persona.id === personaId);
+    const chatName = personId => (findPersona(personId) || findUser(personId) || { name: 'Compte supprimé' }).name;
+    const firstName = name => String(name).split(' ')[0];
+    const chatMessage = (fields, author) => ({ id: id('cm'), roomId: null, threadId: null, ...fields, fromId: author.id, fromName: author.name, created: stamp(), reported: false, reportReason: '', hidden: false });
+    function conversation(user, roomId, threadId) {
+      if (roomId && !threadId) {
+        const room = state.chat.rooms.find(item => item.id === roomId);
+        assert(room, 'Discussion introuvable.');
+        return { room, thread: null };
+      }
+      const thread = !roomId && state.chat.threads.find(item => item.id === threadId);
+      assert(thread && thread.members.includes(user.id), 'Discussion introuvable.');
+      return { room: null, thread };
+    }
+    const canSee = (user, message) => Boolean(message.roomId) || state.chat.threads.some(thread => thread.id === message.threadId && thread.members.includes(user.id));
+    // Persona qui répond dans un salon : de préférence de la filière du salon, à tour de rôle.
+    function roomPersona(room) {
+      const same = state.chat.personas.filter(persona => room.kind === 'track' && persona.track === room.track);
+      const pool = same.length ? same : state.chat.personas;
+      return pool.length ? pool[state.chat.messages.filter(message => message.roomId === room.id).length % pool.length] : null;
+    }
+    // Réponse simulée par mots-clés (texte sans accents), sinon réponse générique. Un mot-clé (lettres et espaces
+    // seulement) est reconnu en début de mot : « inactif » ne déclenche pas « actif ». En salon, aucun prénom n'est inséré.
+    function personaReply(body, user, inRoom) {
+      const normalized = body.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const words = ` ${normalized.replace(/[^a-z0-9]+/g, ' ')}`;
+      const match = data.chatReplies.find(reply => reply.keywords.some(keyword => words.includes(` ${keyword}`)));
+      const template = match ? match.text : data.chatFallback[normalized.length % data.chatFallback.length];
+      return inRoom ? template.replace(/,? \{name\}/g, '') : template.replace(/\{name\}/g, () => firstName(user.name));
+    }
+    // Distribue les réponses planifiées arrivées à échéance ; un message privé reçu crée une notification.
+    function deliverChat() {
+      const due = state.chat.pending.filter(item => Date.parse(item.due) <= time());
+      if (!due.length) return;
+      state.chat.pending = state.chat.pending.filter(item => !due.includes(item));
+      for (const item of due) {
+        const persona = findPersona(item.personaId);
+        const thread = item.threadId ? state.chat.threads.find(entry => entry.id === item.threadId) : null;
+        if (!persona || (item.threadId ? !thread : !state.chat.rooms.some(room => room.id === item.roomId))) continue;
+        state.chat.messages.push(chatMessage({ roomId: item.roomId || null, threadId: item.threadId || null, text: item.text }, persona));
+        if (thread) for (const member of thread.members) if (findUser(member)) notify(member, `${PRIVATE_NOTICE}${persona.name}.`);
+      }
     }
 
     // --- Lecture ------------------------------------------------------------
@@ -502,7 +631,8 @@
       get: () => copy(state),
       warning: () => warning,
       now: () => now(),
-      tick: () => { housekeeping(); if (sessionUser()) transaction(touchSession); },
+      refresh: () => refresh(),
+      tick: () => { sync(); housekeeping(); if (sessionUser()) transaction(touchSession); },
       reset: confirmed => { assert(confirmed === true, 'Confirmation requise.'); state = data.seed(now()); save(); },
       currentUser: () => { const user = sessionUser(); return user ? copy(user) : null; },
       sign,
@@ -534,7 +664,7 @@
         user.verified = true;
         mail(user.email, 'welcome', 'Bienvenue sur ONTRACK : compte activé', [`Bonjour ${user.name},`, 'Votre adresse universitaire est vérifiée et votre compte ONTRACK est activé.', user.role === 'tutor' ? 'Votre profil tuteur est maintenant soumis à la validation de l\'administration. Vous serez informé dès sa publication.' : 'Vous pouvez dès maintenant rechercher un tuteur et réserver une séance.', 'Your Study, Our Priority.']);
         if (user.role === 'tutor') notifyAdmins(`Nouveau profil tuteur à valider : ${user.name}.`);
-        state.session = { userId: user.id, expires: new Date(time() + policy().sessionHours * HOUR).toISOString(), token: randomHex(16) };
+        state.session = { userId: user.id, expires: new Date(time() + policy().sessionHours * HOUR).toISOString(), token: randomHex(16), created: stamp() };
         return { ok: true, role: user.role };
       }),
       login: (email, password) => transaction(() => {
@@ -561,7 +691,7 @@
         user.failed = 0; user.lockedUntil = null;
         if (!user.verified) return { ok: false, unverified: true, error: 'Adresse non vérifiée : saisissez le code reçu par e-mail.' };
         if (user.status !== 'active') return { ok: false, error: 'Compte suspendu. Contactez l\'assistance ONTRACK.' };
-        state.session = { userId: user.id, expires: new Date(time() + policy().sessionHours * HOUR).toISOString(), token: randomHex(16) };
+        state.session = { userId: user.id, expires: new Date(time() + policy().sessionHours * HOUR).toISOString(), token: randomHex(16), created: stamp() };
         user.lastLogin = stamp();
         return { ok: true, role: user.role, name: user.name };
       }),
@@ -578,6 +708,7 @@
         if (!user || !checkCode(user, 'reset', code)) return { ok: false, error: 'Code incorrect ou expiré.' };
         user.salt = randomHex(16); user.hash = hashPassword(user.salt, password);
         delete state.throttle[user.email]; user.failed = 0; user.lockedUntil = null;
+        user.sessionsRevokedAt = stamp();
         if (state.session && state.session.userId === user.id) state.session = null;
         mail(user.email, 'password-changed', 'Votre mot de passe a été modifié', [`Bonjour ${user.name},`, 'Le mot de passe de votre compte ONTRACK vient d\'être modifié. Toutes les sessions ont été fermées.', 'Si vous n\'êtes pas à l\'origine de cette modification, contactez immédiatement l\'assistance.']);
         return { ok: true };
@@ -840,6 +971,75 @@
       markNotificationsRead: () => mutate(() => { const user = me(); for (const item of state.notifications) if (item.userId === user.id) item.read = true; }),
       markEmailRead: emailId => transaction(() => { const email = state.emails.find(item => item.id === emailId); if (email) email.read = true; }),
 
+      // --- Discussions entre étudiants (simulées, sans serveur) ---------------
+      chatPost: input => mutate(() => {
+        const user = me('student');
+        const value = input || {};
+        const body = typeof value.text === 'string' ? value.text.trim() : '';
+        assert(body.length >= 1 && body.length <= CHAT_MAX, 'Message : 1 à 500 caractères.');
+        const { room, thread } = conversation(user, value.roomId, value.threadId);
+        const message = chatMessage({ roomId: room ? room.id : null, threadId: thread ? thread.id : null, text: body }, user);
+        state.chat.messages.push(message);
+        const otherId = thread ? thread.members.find(member => member !== user.id) : null;
+        if (otherId && findUser(otherId)) notify(otherId, `${PRIVATE_NOTICE}${user.name}.`);
+        const persona = room ? roomPersona(room) : findPersona(otherId);
+        const waiting = state.chat.pending.some(item => (room ? item.roomId === room.id : item.threadId === thread.id));
+        if (persona && !waiting) state.chat.pending.push({ id: id('cp'), due: new Date(time() + 2000 + parseInt(randomHex(2), 16) % 4001).toISOString(), roomId: message.roomId, threadId: message.threadId, personaId: persona.id, text: personaReply(body, user, Boolean(room)), forUserId: user.id });
+        return { message, warning: CONTACT_RULE.test(body) ? 'Message publié, mais il semble contenir une adresse e-mail ou un numéro de téléphone : n\'échangez pas de coordonnées.' : '' };
+      }),
+      chatStartThread: otherId => mutate(() => {
+        const user = me('student');
+        assert(otherId !== user.id, 'Vous ne pouvez pas vous écrire à vous-même.');
+        const other = findPersona(otherId) || state.users.find(item => item.id === otherId && item.role === 'student' && item.verified && item.status === 'active');
+        assert(other, 'Destinataire introuvable.');
+        let thread = state.chat.threads.find(item => item.members.includes(user.id) && item.members.includes(otherId));
+        if (!thread) { thread = { id: id('th'), members: [user.id, otherId], created: stamp() }; state.chat.threads.push(thread); }
+        return thread;
+      }),
+      chatReport: (messageId, reason) => mutate(() => {
+        const user = me('student');
+        const message = state.chat.messages.find(item => item.id === messageId);
+        assert(message && canSee(user, message), 'Message introuvable.');
+        assert(message.fromId !== user.id, 'Vous ne pouvez pas signaler votre propre message.');
+        assert(text(reason, 3, 300), 'Précisez le motif du signalement (3 à 300 caractères).');
+        assert(!message.reported, 'Message déjà signalé.');
+        Object.assign(message, { reported: true, reportReason: reason.trim(), reportedBy: user.id, reportedAt: stamp() });
+        notifyAdmins('Message signalé dans les discussions : à modérer.');
+      }),
+      // Vue d'un étudiant : salons, ses fils privés, contacts et messages de la discussion ouverte.
+      chatView: conversationId => {
+        const user = me('student');
+        const chat = state.chat;
+        const lastAt = (filter, fallback) => { const list = chat.messages.filter(filter); return list.length ? list[list.length - 1].created : fallback; };
+        const rooms = chat.rooms.map(room => ({ id: room.id, name: room.name, kind: room.kind, mine: room.kind === 'track' && room.track === user.track, count: chat.messages.filter(message => message.roomId === room.id).length })).sort((first, second) => Number(second.mine) - Number(first.mine));
+        const threads = chat.threads.filter(thread => thread.members.includes(user.id)).map(thread => {
+          const otherId = thread.members.find(member => member !== user.id);
+          return { id: thread.id, otherId, name: chatName(otherId), persona: Boolean(findPersona(otherId)), last: lastAt(message => message.threadId === thread.id, thread.created) };
+        }).sort((first, second) => Date.parse(second.last) - Date.parse(first.last));
+        const contacts = [...chat.personas.map(persona => ({ id: persona.id, name: persona.name, encg: persona.encg, track: persona.track, persona: true })), ...state.users.filter(item => item.role === 'student' && item.id !== user.id && item.verified && item.status === 'active').map(item => ({ id: item.id, name: item.name, encg: item.encg, track: item.track, persona: false }))];
+        const thread = threads.find(item => item.id === conversationId) || null;
+        const room = thread ? null : rooms.find(item => item.id === conversationId) || rooms.find(item => item.mine) || rooms[0] || null;
+        const current = thread ? { kind: 'thread', id: thread.id, name: thread.name, persona: thread.persona } : room ? { kind: 'room', id: room.id, name: room.name, persona: false } : null;
+        const inCurrent = item => current && (thread ? item.threadId === thread.id : item.roomId === room.id);
+        const messages = chat.messages.filter(inCurrent).map(message => ({ id: message.id, fromName: message.fromName, deleted: message.fromId === null, persona: Boolean(findPersona(message.fromId)), mine: message.fromId === user.id, hidden: message.hidden, text: message.hidden ? 'Message masqué par la modération' : message.text, created: message.created, canReport: message.fromId !== user.id && !message.reported && !message.hidden, reportedByMe: message.reported && message.reportedBy === user.id }));
+        const waiting = chat.pending.filter(inCurrent).map(item => chatName(item.personaId));
+        return copy({ rooms, threads, contacts, current, messages, waiting, expecting: chat.pending.some(item => item.forUserId === user.id) });
+      },
+      // Modération : l'administration ne voit que les messages signalés.
+      chatReported: () => {
+        me('admin');
+        return copy(state.chat.messages.filter(message => message.reported).map(message => {
+          const room = message.roomId ? state.chat.rooms.find(item => item.id === message.roomId) : null;
+          return { id: message.id, place: room ? room.name : null, fromName: message.fromName, text: message.text, created: message.created, reason: message.reportReason, reportedBy: message.reportedBy ? chatName(message.reportedBy) : 'Compte supprimé', reportedAt: message.reportedAt || message.created, hidden: message.hidden };
+        }).reverse());
+      },
+      chatHide: (messageId, hidden) => mutate(() => {
+        me('admin');
+        const message = state.chat.messages.find(item => item.id === messageId);
+        assert(message && message.reported && typeof hidden === 'boolean', 'Message introuvable.');
+        message.hidden = hidden; message.moderatedAt = stamp();
+      }),
+
       // --- Administration ------------------------------------------------
       setUserStatus: (userId, status) => mutate(() => {
         const admin = me('admin');
@@ -1055,13 +1255,31 @@
         assert(message && ['nouveau', 'traité'].includes(status), 'Message introuvable.');
         message.status = status;
       }),
-      exportData: () => { me('admin'); return JSON.stringify(state, null, 2); },
+      // Les discussions privées ne figurent pas dans la sauvegarde : l'administration ne voit que les messages signalés.
+      exportData: () => {
+        me('admin');
+        const snapshot = copy(state);
+        snapshot.chat.threads = [];
+        snapshot.chat.messages = snapshot.chat.messages.filter(message => !message.threadId);
+        snapshot.chat.pending = snapshot.chat.pending.filter(item => !item.threadId);
+        snapshot.notifications = snapshot.notifications.filter(item => !item.text.startsWith(PRIVATE_NOTICE));
+        return JSON.stringify(snapshot, null, 2);
+      },
       importData: (json, confirmed) => mutate(() => {
         const admin = me('admin');
         assert(confirmed === true, 'Confirmation requise.');
         let parsed;
         try { parsed = JSON.parse(json); } catch (error) { throw new Error('Fichier de sauvegarde illisible (JSON invalide).'); }
-        valid(parsed);
+        valid(migrate(parsed));
+        // Les discussions privées en cours, absentes de la sauvegarde, sont conservées si leurs membres existent encore.
+        const people = new Set([...parsed.users.map(user => user.id), ...parsed.chat.personas.map(persona => persona.id)]);
+        const kept = state.chat.threads.filter(thread => thread.members.every(member => people.has(member)) && !parsed.chat.threads.some(item => item.id === thread.id));
+        const keptIds = new Set(kept.map(thread => thread.id));
+        parsed.chat.threads.push(...kept);
+        parsed.chat.messages.push(...state.chat.messages.filter(message => keptIds.has(message.threadId)));
+        parsed.chat.pending.push(...state.chat.pending.filter(item => keptIds.has(item.threadId) && parsed.chat.personas.some(persona => persona.id === item.personaId)));
+        const userIds = new Set(parsed.users.map(user => user.id));
+        parsed.notifications.push(...state.notifications.filter(item => item.text.startsWith(PRIVATE_NOTICE) && userIds.has(item.userId) && !parsed.notifications.some(other => other.id === item.id)));
         parsed.session = parsed.users.some(user => user.id === admin.id && user.role === 'admin') ? state.session : null;
         state = parsed;
       })
@@ -1139,6 +1357,15 @@
         state.orientationProfiles = state.orientationProfiles.filter(item => item.studentId !== user.id);
         state.consultations = state.consultations.filter(item => item.studentId !== user.id);
       }
+      // Discussions : fils privés et réponses planifiées pour ce compte supprimés, messages de salon anonymisés.
+      const threads = new Set(state.chat.threads.filter(thread => thread.members.includes(user.id)).map(thread => thread.id));
+      state.chat.threads = state.chat.threads.filter(thread => !threads.has(thread.id));
+      state.chat.messages = state.chat.messages.filter(message => !threads.has(message.threadId));
+      state.chat.pending = state.chat.pending.filter(item => !threads.has(item.threadId) && item.forUserId !== user.id);
+      for (const message of state.chat.messages) {
+        if (message.fromId === user.id) { message.fromId = null; message.fromName = 'Compte supprimé'; }
+        if (message.reportedBy === user.id) message.reportedBy = null;
+      }
       state.notifications = state.notifications.filter(item => item.userId !== user.id);
       state.codes = state.codes.filter(item => item.userId !== user.id);
       state.messages = state.messages.filter(item => item.userId !== user.id && item.email !== user.email);
@@ -1151,7 +1378,7 @@
     }
     return api;
   }
-  const api = { createStore, KEY };
+  const api = { createStore, KEY, SESSION_KEY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.OntrackStore = api;
 }(typeof globalThis !== 'undefined' ? globalThis : this));

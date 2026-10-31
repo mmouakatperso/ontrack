@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createStore, KEY } = require('../store.js');
+const { createStore, KEY, SESSION_KEY } = require('../store.js');
 const { sha256 } = require('../sha256.js');
 
 const SALMA = 'salma.benali@etu.encg-casablanca.demo';
@@ -730,4 +730,316 @@ test('orientation : date limite dépassée (fin de journée au Maroc) jamais él
   const late = store.recommendations('s1').find(item => item.programId === 'hec-liege');
   assert.equal(late.deadlinePassed, true);
   assert.equal(late.eligible, false);
+});
+
+// --- Discussions entre étudiants : deux onglets (deux stores) partagent le même stockage, chacun sa session ---
+function tabs(at) {
+  let instant = new Date(at || '2026-10-23T08:00:00Z');
+  const storage = memoryStorage();
+  const clock = () => instant;
+  const open = sessionStore => createStore(storage, clock, sessionStore || memoryStorage());
+  const login = (store, email) => { const result = store.login(email, email === ADMIN ? 'Admin2026!' : PASSWORD); assert.ok(result.ok, result.error); return store; };
+  const A = login(open(), SALMA);
+  const B = login(open(), OMAR);
+  const nadia = () => {
+    const tab = open();
+    tab.register({ name: 'Nadia Alaoui', email: 'nadia@etu.encg-agadir.demo', encg: 'Agadir', level: 'S2', track: 'Tronc commun', password: 'Motdepasse1', consent: true });
+    const code = tab.get().emails.find(email => email.to === 'nadia@etu.encg-agadir.demo' && email.kind === 'verification').code;
+    assert.equal(tab.verifyEmail('nadia@etu.encg-agadir.demo', code).ok, true);
+    return tab;
+  };
+  return { storage, A, B, open, login, nadia, clock, now: () => instant, set: value => { instant = new Date(value); }, advance: ms => { instant = new Date(instant.getTime() + ms); } };
+}
+const lastMessage = store => store.get().chat.messages.at(-1);
+
+test('session par onglet : connexion propre à l\'onglet, conservée au rechargement, absente de l\'état partagé', () => {
+  const storage = memoryStorage();
+  const tabA = memoryStorage();
+  const clock = () => new Date('2026-10-23T08:00:00Z');
+  const A = createStore(storage, clock, tabA);
+  const B = createStore(storage, clock, memoryStorage());
+  assert.equal(A.login(SALMA, PASSWORD).ok, true);
+  B.tick();
+  assert.equal(B.currentUser(), null, 'se connecter dans un onglet ne connecte pas les autres');
+  assert.equal(B.login(OMAR, PASSWORD).ok, true);
+  A.tick();
+  assert.equal(A.currentUser().email, SALMA, 'l\'onglet A garde sa session après relecture de l\'état');
+  assert.equal(JSON.parse(storage.getItem(KEY)).session, null, 'session exclue de l\'état partagé');
+  assert.equal(JSON.parse(tabA.getItem(SESSION_KEY)).userId, 's1');
+  assert.equal(createStore(storage, clock, tabA).currentUser().email, SALMA, 'recharger l\'onglet garde la session');
+  A.logout();
+  assert.equal(tabA.getItem(SESSION_KEY), null);
+  B.tick();
+  assert.equal(B.currentUser().email, OMAR);
+  const snapshot = storage.getItem(KEY);
+  B.tick();
+  assert.equal(storage.getItem(KEY), snapshot, 'une simple navigation ne réécrit pas l\'état partagé');
+});
+
+test('discussions : envoi en salon, réponse de persona planifiée entre 2 et 6 s puis distribuée par tick', () => {
+  const { A, now, set, advance } = tabs();
+  assert.equal(A.chatView().current.id, 'r-gestion', 'salon de la filière ouvert par défaut');
+  assert.ok(A.chatView().rooms[0].mine);
+  const sent = A.chatPost({ roomId: 'r-gestion', text: '  Qui révise la compta ?  ' });
+  assert.equal(sent.warning, '');
+  assert.deepEqual([sent.message.text, sent.message.fromId, sent.message.roomId, sent.message.threadId], ['Qui révise la compta ?', 's1', 'r-gestion', null]);
+  const pending = A.get().chat.pending;
+  assert.equal(pending.length, 1);
+  const delay = Date.parse(pending[0].due) - now().getTime();
+  assert.ok(delay >= 2000 && delay <= 6000, `délai ${delay} ms`);
+  assert.equal(pending[0].roomId, 'r-gestion');
+  assert.equal(pending[0].forUserId, 's1');
+  assert.deepEqual(A.chatView('r-gestion').waiting, ['Yasmine (fictive)']);
+  assert.equal(A.chatView().expecting, true);
+  A.chatPost({ roomId: 'r-gestion', text: 'Et les amortissements ?' });
+  assert.equal(A.get().chat.pending.length, 1, 'une seule réponse attendue par discussion');
+  advance(1999);
+  A.tick();
+  assert.equal(A.get().chat.pending.length, 1, 'avant l\'échéance : rien n\'est distribué');
+  set(pending[0].due);
+  A.tick();
+  const state = A.get();
+  assert.equal(state.chat.pending.length, 0, 'entrée pending retirée');
+  const reply = state.chat.messages.at(-1);
+  assert.equal(reply.fromId, 'p-yasmine');
+  assert.match(reply.fromName, /\(fictive\)/);
+  assert.match(reply.text, /^Pour la compta, je refais/);
+  assert.ok(!reply.text.includes('Salma'), 'aucun prénom dans une réponse publique');
+  assert.equal(A.chatView('r-gestion').messages.at(-1).persona, true);
+  assert.equal(A.chatView().expecting, false);
+});
+
+test('discussions : réservées aux étudiants, 1 à 500 caractères, coordonnées publiées avec un avertissement', () => {
+  const { A, open, login } = tabs();
+  for (const email of [YASSINE, ADMIN]) {
+    const tab = login(open(), email);
+    assert.throws(() => tab.chatPost({ roomId: 'r-tc', text: 'Bonjour' }), /^Error: Accès refusé : connectez-vous avec un compte autorisé\.$/);
+    assert.throws(() => tab.chatView(), /Accès refusé/);
+  }
+  assert.throws(() => open().chatPost({ roomId: 'r-tc', text: 'Bonjour' }), /Accès refusé/, 'visiteur');
+  for (const text of ['', '   ', 'a'.repeat(501), null]) assert.throws(() => A.chatPost({ roomId: 'r-tc', text }), /^Error: Message : 1 à 500 caractères\.$/);
+  assert.equal(A.chatPost({ roomId: 'r-tc', text: 'a'.repeat(500) }).message.text.length, 500);
+  assert.throws(() => A.chatPost({ roomId: 'inconnu', text: 'Bonjour' }), /Discussion introuvable/);
+  assert.throws(() => A.chatPost({ roomId: 'r-tc', threadId: 'th-x', text: 'Bonjour' }), /Discussion introuvable/);
+  for (const text of ['écris-moi à a@b.ma', 'Mon numéro : 06 12 34 56 78', 'Appelle le +212612345678']) {
+    const result = A.chatPost({ roomId: 'r-tc', text });
+    assert.match(result.warning, /adresse e-mail ou un numéro de téléphone/, text);
+    assert.equal(lastMessage(A).text, text, 'message publié malgré l\'avertissement');
+  }
+  assert.equal(A.chatPost({ roomId: 'r-tc', text: 'Examen le 12/01/2026 en salle 204' }).warning, '');
+});
+
+test('discussions privées : Salma → Omar d\'un onglet à l\'autre, notification, invisibles pour un tiers', () => {
+  const { A, B, open, login, nadia, set } = tabs();
+  const thread = A.chatStartThread('s2');
+  assert.equal(A.chatStartThread('s2').id, thread.id, 'pas de doublon');
+  assert.throws(() => A.chatStartThread('s1'), /vous-même/);
+  assert.throws(() => A.chatStartThread('t1'), /Destinataire introuvable/);
+  A.chatPost({ threadId: thread.id, text: 'Salut Omar, on révise ensemble ?' });
+  assert.equal(A.get().chat.pending.length, 0, 'aucune réponse simulée entre deux vrais étudiants');
+  assert.equal(B.refresh(), true, 'l\'onglet B relit l\'état sans rechargement');
+  const view = B.chatView(thread.id);
+  assert.equal(view.current.kind, 'thread');
+  assert.equal(view.current.name, 'Salma Benali');
+  assert.equal(view.messages.at(-1).text, 'Salut Omar, on révise ensemble ?');
+  assert.ok(B.get().notifications.some(item => item.userId === 's2' && item.text === 'Nouveau message privé de Salma Benali.'), 'Omar notifié');
+  const C = nadia();
+  const intruder = C.chatView(thread.id);
+  assert.equal(intruder.current.kind, 'room');
+  assert.equal(intruder.threads.length, 0);
+  assert.ok(!JSON.stringify(intruder).includes('on révise ensemble'));
+  const privateId = B.chatView(thread.id).messages.at(-1).id;
+  assert.throws(() => C.chatPost({ threadId: thread.id, text: 'Coucou' }), /Discussion introuvable/);
+  assert.throws(() => C.chatReport(privateId, 'Propos inappropriés'), /Message introuvable/);
+  const admin = login(open(), ADMIN);
+  assert.deepEqual(admin.chatReported(), [], 'l\'administration ne voit pas les messages non signalés');
+  const backup = admin.exportData();
+  assert.ok(!backup.includes('on révise ensemble'), 'sauvegarde sans discussion privée');
+  assert.ok(!backup.includes('Nouveau message privé'), 'sauvegarde sans notification révélant qui écrit à qui');
+  admin.importData(backup, true);
+  assert.equal(admin.currentUser().role, 'admin', 'import : session de l\'onglet conservée');
+  B.refresh();
+  assert.equal(B.chatView(thread.id).messages.at(-1).text, 'Salut Omar, on révise ensemble ?', 'import : discussions privées en cours conservées');
+  assert.ok(B.get().notifications.some(item => item.userId === 's2' && item.text === 'Nouveau message privé de Salma Benali.'), 'import : notification conservée');
+  // Discussion avec une persona : réponse automatique, puis notification à la distribution.
+  const persona = A.chatStartThread('p-ines');
+  A.chatPost({ threadId: persona.id, text: 'Bonjour Inès !' });
+  const due = A.get().chat.pending.find(item => item.threadId === persona.id);
+  assert.equal(due.personaId, 'p-ines');
+  set(due.due);
+  A.tick();
+  const reply = A.chatView(persona.id).messages.at(-1);
+  assert.deepEqual([reply.fromName, reply.persona], ['Inès (fictive)', true]);
+  assert.match(reply.text, /^Salut Salma !/, 'en discussion privée, la persona cite le prénom');
+  assert.ok(A.get().notifications.some(item => item.userId === 's1' && item.text === 'Nouveau message privé de Inès (fictive).'));
+  assert.equal(A.get().chat.pending.length, 0);
+});
+
+test('deux onglets : écritures alternées sans perte de message, état relu avant chaque écriture', () => {
+  const { storage, A, B } = tabs();
+  const thread = A.chatStartThread('s2');
+  for (let index = 0; index < 6; index += 1) (index % 2 ? B : A).chatPost({ threadId: thread.id, text: `Message ${index}` });
+  A.chatPost({ roomId: 'r-tc', text: 'Salon depuis A' });
+  B.chatPost({ roomId: 'r-tc', text: 'Salon depuis B' });
+  A.refresh(); B.refresh();
+  const expected = ['Message 0', 'Message 1', 'Message 2', 'Message 3', 'Message 4', 'Message 5'];
+  for (const tab of [A, B]) assert.deepEqual(tab.chatView(thread.id).messages.map(item => item.text), expected);
+  const shared = JSON.parse(storage.getItem(KEY)).chat.messages.map(item => item.text);
+  for (const text of [...expected, 'Salon depuis A', 'Salon depuis B']) assert.ok(shared.includes(text), text);
+  assert.equal(A.currentUser().email, SALMA);
+  assert.equal(B.currentUser().email, OMAR);
+  // Données illisibles écrites par un autre onglet : rien n'est adopté et l'avertissement est affiché.
+  const valid = storage.getItem(KEY);
+  storage.setItem(KEY, '{');
+  A.tick();
+  assert.match(A.warning(), /autre onglet/);
+  assert.equal(A.currentUser().email, SALMA);
+  storage.setItem(KEY, valid.replace('Message 5', 'Message 5 relu'));
+  A.tick();
+  assert.equal(A.warning(), '', 'avertissement effacé après une relecture réussie');
+  assert.equal(A.chatView(thread.id).messages.at(-1).text, 'Message 5 relu');
+});
+
+test('signalement et modération : file admin, masquage puis rétablissement', () => {
+  const { A, B, open, login } = tabs();
+  const { message } = A.chatPost({ roomId: 'r-gestion', text: 'Message à signaler' });
+  assert.throws(() => A.chatReport(message.id, 'Propos inappropriés ou harcèlement'), /^Error: Vous ne pouvez pas signaler votre propre message\.$/);
+  assert.throws(() => B.chatReport(message.id, 'x'), /motif/);
+  B.chatReport(message.id, 'Propos inappropriés ou harcèlement');
+  assert.throws(() => B.chatReport(message.id, 'Propos inappropriés ou harcèlement'), /déjà signalé/);
+  assert.equal(B.chatView('r-gestion').messages.find(item => item.id === message.id).reportedByMe, true);
+  assert.throws(() => B.chatHide(message.id, true), /Accès refusé/);
+  const admin = login(open(), ADMIN);
+  const flagged = admin.chatReported();
+  assert.equal(flagged.length, 1);
+  assert.deepEqual([flagged[0].text, flagged[0].place, flagged[0].fromName, flagged[0].reportedBy, flagged[0].reason, flagged[0].hidden], ['Message à signaler', 'Gestion', 'Salma Benali', 'Omar Tazi', 'Propos inappropriés ou harcèlement', false]);
+  assert.ok(admin.get().notifications.some(item => item.userId === 'a1' && /Message signalé/.test(item.text)));
+  assert.throws(() => admin.chatHide('cm-seed-1', true), /Message introuvable/, 'seuls les messages signalés sont modérables');
+  admin.chatHide(message.id, true);
+  A.refresh();
+  const hidden = A.chatView('r-gestion').messages.find(item => item.id === message.id);
+  assert.deepEqual([hidden.hidden, hidden.text, hidden.canReport], [true, 'Message masqué par la modération', false]);
+  assert.equal(admin.chatReported()[0].hidden, true, 'reste dans la file pour pouvoir être rétabli');
+  admin.chatHide(message.id, false);
+  A.refresh();
+  assert.equal(A.chatView('r-gestion').messages.find(item => item.id === message.id).text, 'Message à signaler');
+});
+
+test('suppression de compte : messages anonymisés, fils privés et réponses planifiées supprimés', () => {
+  const { storage, A, B, clock } = tabs();
+  A.chatPost({ roomId: 'r-gestion', text: 'Message de Salma dans un salon' });
+  const withOmar = A.chatStartThread('s2');
+  A.chatPost({ threadId: withOmar.id, text: 'Privé pour Omar' });
+  B.chatPost({ threadId: withOmar.id, text: 'Réponse d\'Omar' });
+  const withPersona = A.chatStartThread('p-ines');
+  A.chatPost({ threadId: withPersona.id, text: 'Bonjour Inès' });
+  B.chatPost({ roomId: 'r-tc', text: 'Bonjour le Tronc commun' });
+  A.refresh();
+  assert.ok(A.get().chat.pending.some(item => item.forUserId === 's1'));
+  A.deleteAccount(PASSWORD, true);
+  B.refresh();
+  const chat = B.get().chat;
+  const room = chat.messages.find(item => item.text === 'Message de Salma dans un salon');
+  assert.deepEqual([room.fromId, room.fromName], [null, 'Compte supprimé']);
+  assert.equal(B.chatView('r-gestion').messages.find(item => item.id === room.id).deleted, true);
+  assert.ok(!chat.threads.some(thread => thread.members.includes('s1')));
+  assert.ok(!chat.messages.some(item => [withOmar.id, withPersona.id].includes(item.threadId)));
+  assert.ok(!chat.pending.some(item => item.forUserId === 's1'), 'réponses planifiées pour Salma supprimées');
+  assert.ok(chat.pending.some(item => item.forUserId === 's2'), 'celles d\'Omar sont conservées');
+  assert.deepEqual(B.chatView().threads, []);
+  assert.equal(createStore(storage, clock, memoryStorage()).warning(), '', 'état toujours valide après suppression');
+});
+
+test('migration : un état v3 sans collection chat reçoit le chat du seed, sans réinitialiser le reste', () => {
+  const storage = memoryStorage();
+  const clock = () => new Date('2026-10-23T08:00:00Z');
+  const before = createStore(storage, clock);
+  before.login(ADMIN, 'Admin2026!');
+  before.setOffer('quick', { price: 77 });
+  const saved = JSON.parse(storage.getItem(KEY));
+  delete saved.chat;
+  storage.setItem(KEY, JSON.stringify(saved));
+  const migrated = createStore(storage, clock, memoryStorage());
+  assert.equal(migrated.warning(), '');
+  const state = migrated.get();
+  assert.equal(state.offers.find(offer => offer.id === 'quick').price, 77, 'données conservées');
+  assert.deepEqual(state.chat.rooms.map(room => room.name), ['Tronc commun', 'Gestion', 'Commerce', 'Finance', 'Comptabilité générale', 'Statistiques']);
+  assert.ok(state.chat.personas.length >= 3 && state.chat.personas.length <= 4 && state.chat.personas.every(persona => persona.name.includes('(fictive)')));
+  for (const room of state.chat.rooms) assert.equal(state.chat.messages.filter(message => message.roomId === room.id).length, 2, room.id);
+  assert.ok(JSON.parse(storage.getItem(KEY)).chat, 'chat enregistré');
+  const corruptions = [chat => { chat.personas[0].name = 'Inès'; }, chat => { chat.messages[0].text = 'x'.repeat(501); }, chat => { chat.threads.push({ id: 'th-1', members: ['s1', 'inconnu'], created: '2026-10-23T08:00:00Z' }); }, chat => { chat.pending.push({ id: 'cp-1', due: 'demain', roomId: 'r-tc', threadId: null, personaId: 'p-ines', text: 'x' }); }];
+  for (const corrupt of corruptions) {
+    const broken = migrated.get(); corrupt(broken.chat);
+    assert.match(createStore({ getItem: () => JSON.stringify(broken), setItem() {} }).warning(), /mémoire/);
+  }
+  // Import d'une sauvegarde antérieure aux discussions : chat du seed ajouté, données conservées.
+  migrated.login(ADMIN, 'Admin2026!');
+  migrated.setOffer('quick', { price: 66 });
+  const backup = JSON.parse(migrated.exportData());
+  delete backup.chat;
+  migrated.setOffer('quick', { price: 50 });
+  migrated.importData(JSON.stringify(backup), true);
+  const imported = migrated.get();
+  assert.equal(imported.offers.find(offer => offer.id === 'quick').price, 66);
+  assert.deepEqual(imported.chat.rooms.map(room => room.id), ['r-tc', 'r-gestion', 'r-commerce', 'r-finance', 'r-compta-gen', 'r-stats']);
+});
+
+test('réinitialisation du mot de passe : les sessions du compte sont fermées dans tous les onglets', () => {
+  const { A, B, open, advance } = tabs();
+  advance(60000);
+  const C = open();
+  C.requestReset(SALMA);
+  const code = C.get().emails.find(email => email.to === SALMA && email.kind === 'password-reset').code;
+  assert.equal(C.confirmReset(SALMA, code, 'Nouveau2026').ok, true);
+  A.tick();
+  assert.equal(A.currentUser(), null, 'session de l\'onglet A ouverte avant la réinitialisation : fermée');
+  B.tick();
+  assert.equal(B.currentUser().email, OMAR, 'les autres comptes ne sont pas touchés');
+  assert.equal(A.login(SALMA, 'Nouveau2026').ok, true);
+  A.tick();
+  assert.equal(A.currentUser().email, SALMA, 'une session ouverte après la réinitialisation est valide');
+  const broken = A.get();
+  broken.users.find(user => user.id === 's1').sessionsRevokedAt = 'jamais';
+  assert.match(createStore({ getItem: () => JSON.stringify(broken), setItem() {} }).warning(), /mémoire/);
+});
+
+test('personas : nom avec « $\' » inséré tel quel en privé, jamais en salon ; mots-clés en début de mot', () => {
+  const { A, set } = tabs();
+  const name = '$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\'$\' Test';
+  A.updateProfile({ name, level: 'S6', track: 'Gestion' });
+  const thread = A.chatStartThread('p-ines');
+  A.chatPost({ threadId: thread.id, text: 'Une question de compta' });
+  A.chatPost({ roomId: 'r-gestion', text: 'Une question de compta' });
+  const due = A.get().chat.pending;
+  assert.match(due.find(item => item.threadId === thread.id).text, /^Pour la compta, \$'\$'/);
+  assert.equal(due.find(item => item.roomId === 'r-gestion').text.includes('$'), false, 'aucun prénom en salon');
+  set(due.map(item => item.due).sort().at(-1));
+  A.tick();
+  A.tick();
+  const reply = A.chatView(thread.id).messages.at(-1);
+  assert.equal(reply.text, `Pour la compta, ${name.split(' ')[0]}, je refais toujours un petit bilan à la main avant l'examen. On pourrait comparer nos corrigés dans ce salon ?`);
+  assert.ok(reply.text.length <= 500);
+  assert.equal(A.warning(), '');
+  for (const [roomId, text, forbidden] of [['r-tc', 'Quel est le statut de ma demande ?', /stats/], ['r-commerce', 'Je suis inactif depuis lundi', /compta/], ['r-finance', 'Stop, je reviens plus tard', /Avec plaisir/]]) {
+    A.chatPost({ roomId, text });
+    const pending = A.get().chat.pending.find(item => item.roomId === roomId);
+    assert.doesNotMatch(pending.text, forbidden, text);
+  }
+});
+
+test('deux onglets : l\'état est relu avant les tâches périodiques, dont l\'effet n\'est pas perdu', () => {
+  const { storage, A, advance, now } = tabs();
+  const need = { encg: 'Casablanca', level: 'S6', subjectId: 'compta-gen', chapterId: 'compta-gen-1', difficulty: 'Cours manqué', mode: 'En ligne', wishes: '', text: 'Revoir le bilan', attachment: null };
+  const input = { tutorId: 't1', offerId: 'quick', start: A.get().tutors[0].slots[0], need, acceptPolicy: true };
+  const first = A.createBooking(input);
+  advance(16 * 60000);
+  // Un autre onglet écrit l'état (sans exécuter les tâches périodiques) avant la prochaine action de A.
+  const shared = JSON.parse(storage.getItem(KEY));
+  shared.chat.messages.push({ id: 'cm-autre-onglet', roomId: 'r-tc', threadId: null, fromId: 's2', fromName: 'Omar Tazi', text: 'Écrit dans un autre onglet', created: now().toISOString(), reported: false, reportReason: '', hidden: false });
+  storage.setItem(KEY, JSON.stringify(shared));
+  const second = A.createBooking(input);
+  assert.equal(second.status, 'pending', 'créneau libéré par l\'expiration de la retenue, puis réservé de nouveau');
+  const state = JSON.parse(storage.getItem(KEY));
+  assert.equal(state.bookings.find(item => item.id === first.id).status, 'failed');
+  assert.ok(state.chat.messages.some(item => item.id === 'cm-autre-onglet'), 'écriture de l\'autre onglet conservée');
 });

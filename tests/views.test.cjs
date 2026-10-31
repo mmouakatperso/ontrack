@@ -11,7 +11,7 @@ const O = globalThis.Ontrack;
 const ACCOUNTS = { student: ['salma.benali@etu.encg-casablanca.demo', 'Demo2026!'], subscriber: ['omar.tazi@etu.encg-settat.demo', 'Demo2026!'], tutor: ['yassine.amrani@etu.encg-casablanca.demo', 'Demo2026!'], pending: ['adam.idrissi@etu.encg-tanger.demo', 'Demo2026!'], admin: ['admin@ontrack.demo', 'Admin2026!'] };
 const ROUTES = {
   public: [['accueil'], ['accueil', 'offres'], ['presentation'], ['connexion'], ['inscription'], ['inscription-tuteur'], ['verification'], ['mot-de-passe-oublie'], ['matieres'], ['matieres', 'stats'], ['catalogue'], ['profil', 't1'], ['profil', 't3'], ['orientation'], ['pods'], ['contact'], ['cgu'], ['confidentialite'], ['mentions'], ['boite-mail']],
-  student: [['reserver'], ['reserver', 't1'], ['paiement', 'inconnu'], ['confirmation', 'inconnu'], ...['apercu', 'seances', 'historique', 'forfaits', 'progression', 'comptes-rendus', 'notifications', 'profil'].map(tab => ['etudiant', tab]), ['orientation']],
+  student: [['reserver'], ['reserver', 't1'], ['paiement', 'inconnu'], ['confirmation', 'inconnu'], ...['apercu', 'seances', 'historique', 'forfaits', 'progression', 'comptes-rendus', 'discussions', 'notifications', 'profil'].map(tab => ['etudiant', tab]), ['orientation']],
   tutor: ['apercu', 'seances', 'profil', 'matieres', 'disponibilites', 'avis', 'historique', 'remuneration'].map(tab => ['tuteur', tab]),
   admin: ['apercu', 'etudiants', 'tuteurs', 'domaines', 'referentiel', 'tarifs', 'politique', 'reservations', 'paiements', 'remunerations', 'moderation', 'orientation', 'pods', 'messages', 'sauvegarde'].map(tab => ['admin', tab])
 };
@@ -254,6 +254,82 @@ test('administration : le gestionnaire admin-program analyse les places et vide 
   assert.deepEqual(saved.documents, []);
   assert.deepEqual(saved.tracks, ['Gestion', 'Commerce']);
   assert.equal(saved.active, true);
+});
+
+test('discussions : onglet étudiant (rappels, salons, fil aria-live), échappement, gestionnaires et modération admin', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  assert.equal(O.routes.etudiant.role, 'student');
+  for (const role of ['tutor', 'admin']) assert.equal(O.access(O.routes.etudiant, { role }).redirect, true, `garde : ${role}`);
+  store.login(...ACCOUNTS.student);
+  const ui = { filters: {}, gateway: {}, wizard: null, chatDraft: { 'r-gestion': 'Brouillon <conservé>' }, chatReport: null };
+  const ctx = params => contextFor(store, params || [], ui);
+  const html = render(store, ['etudiant', 'discussions'], ui);
+  assert.match(html, /N'échangez ni coordonnées, ni documents, ni données personnelles\./, 'rappel permanent');
+  assert.match(html, /aucun échange entre appareils/, 'limite affichée');
+  assert.match(html, /<a href="#etudiant\/discussions\/r-gestion" class="active" aria-current="true">Gestion<\/a> <span class="badge green">Votre filière<\/span>/);
+  assert.match(html, /<h2 id="chat-title">Salon Gestion<\/h2>/);
+  assert.match(html, /<ol class="chat-log" id="chat-log" role="log" aria-live="polite"/);
+  assert.match(html, /Yasmine \(fictive\)/);
+  assert.match(html, /<textarea name="text" id="chat-input" rows="3" maxlength="500" required data-draft="r-gestion"[^>]*>Brouillon &lt;conservé&gt;<\/textarea>/, 'brouillon conservé et échappé');
+  assert.match(html, /data-form="chat-post" data-kind="room" data-id="r-gestion"/);
+  assert.match(html, /<option value="s2">Omar Tazi · ENCG Settat · Tronc commun<\/option>/);
+  assert.equal(O.forms['chat-post'](ctx(), { text: '<img src=x onerror=alert(1)>' }, { dataset: { kind: 'room', id: 'r-gestion' } }).message, 'Message envoyé.');
+  assert.equal(ui.chatDraft['r-gestion'], undefined, 'brouillon vidé après envoi');
+  const escaped = render(store, ['etudiant', 'discussions'], ui);
+  assert.ok(!escaped.includes('<img src=x'));
+  assert.match(escaped, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.match(escaped, /Yasmine \(fictive\) est en train d'écrire…/);
+  const warned = O.forms['chat-post'](ctx(), { text: 'écris-moi à a@b.ma' }, { dataset: { kind: 'room', id: 'r-gestion' } });
+  assert.match(warned.message, /n'échangez pas de coordonnées/);
+  assert.equal(warned.error, true, 'avertissement visible');
+  assert.equal(warned.focus, undefined, 'le focus reste sur l\'avertissement');
+  assert.equal(O.forms['chat-post'](ctx(), { text: 'Merci !' }, { dataset: { kind: 'room', id: 'r-gestion' } }).focus, 'chat-input');
+  // Fil : position conservée si l'utilisateur lisait plus haut, en bas sinon ou après son propre envoi.
+  const log = { scrollTop: 0, scrollHeight: 900 };
+  const fakeMain = { querySelector: () => log };
+  ui.chatScroll = { top: 120, atBottom: false }; ui.chatScrollEnd = false;
+  O.routes.etudiant.after(ctx(), fakeMain);
+  assert.equal(log.scrollTop, 120);
+  ui.chatScroll = { top: 120, atBottom: false }; ui.chatScrollEnd = true;
+  O.routes.etudiant.after(ctx(), fakeMain);
+  assert.equal(log.scrollTop, 900);
+  assert.deepEqual([ui.chatScroll, ui.chatScrollEnd], [null, false]);
+  // « Écrire à… » : choix conservé au réaffichage, puis oublié à l'ouverture de la discussion.
+  ui.chatDraft.to = 's2';
+  assert.match(render(store, ['etudiant', 'discussions'], ui), /<select name="to" id="chat-to" data-draft="to">[\s\S]*<option value="s2" selected>/);
+  assert.throws(() => O.forms['chat-start'](ctx(), { to: '' }), /Choisissez un destinataire/);
+  const opened = O.forms['chat-start'](ctx(), { to: 's2' });
+  assert.equal(ui.chatDraft.to, undefined);
+  const threadId = opened.go.split('/')[2];
+  assert.match(opened.go, /^etudiant\/discussions\/th-/);
+  O.forms['chat-post'](ctx(), { text: 'Salut Omar' }, { dataset: { kind: 'thread', id: threadId } });
+  const thread = render(store, ['etudiant', 'discussions', threadId], ui);
+  assert.match(thread, /Discussion privée avec Omar Tazi/);
+  assert.match(thread, /Visible uniquement par vous deux/);
+  assert.match(thread, /Salut Omar/);
+  O.actions['chat-report-open'](ctx(), { id: 'cm-seed-3' });
+  assert.match(render(store, ['etudiant', 'discussions', 'r-gestion'], ui), /data-form="chat-report" data-id="cm-seed-3"[\s\S]*<option value="Publicité ou spam">Publicité ou spam<\/option>/);
+  ui.chatDraft.report = 'Autre motif';
+  O.actions['chat-report-cancel'](ctx(), { id: 'cm-seed-3' });
+  assert.equal(ui.chatDraft.report, undefined, 'motif oublié à l\'annulation');
+  O.actions['chat-report-open'](ctx(), { id: 'cm-seed-3' });
+  ui.chatDraft.report = 'Publicité ou spam';
+  O.forms['chat-report'](ctx(), { reason: 'Publicité ou spam' }, { dataset: { id: 'cm-seed-3' } });
+  assert.equal(ui.chatReport, null);
+  assert.equal(ui.chatDraft.report, undefined, 'motif oublié après l\'envoi');
+  assert.match(render(store, ['etudiant', 'discussions', 'r-gestion'], ui), /Vous avez signalé ce message\./);
+  store.logout(); store.login(...ACCOUNTS.admin);
+  const admin = render(store, ['admin', 'moderation']);
+  assert.match(admin, /Messages signalés \(1\)/);
+  assert.match(admin, /Salon Gestion · Yasmine \(fictive\)/);
+  assert.match(admin, /signalé par Salma Benali le .* : Publicité ou spam/);
+  assert.ok(!admin.includes('Salut Omar') && !admin.includes('onerror'), 'messages non signalés et discussions privées invisibles pour l\'admin');
+  assert.equal(O.actions['admin-chat-hide'](contextFor(store, []), { id: 'cm-seed-3', hidden: 'true' }), 'Message masqué : il est remplacé par « Message masqué par la modération ».');
+  assert.match(render(store, ['admin', 'moderation']), /<span class="badge gray">Masqué<\/span>[\s\S]*data-action="admin-chat-hide" data-id="cm-seed-3" data-hidden="false">Rétablir/);
+  store.logout(); store.login(...ACCOUNTS.subscriber);
+  assert.match(render(store, ['etudiant', 'discussions', 'r-gestion']), /<em>Message masqué par la modération<\/em>/);
+  assert.match(render(store, ['cgu']), /10\. Discussions entre étudiants[\s\S]*Message masqué par la modération/);
+  assert.match(render(store, ['confidentialite']), /Messages des discussions[\s\S]*sessionStorage[\s\S]*le nom, l'ENCG et la filière des autres étudiants inscrits/);
 });
 
 test('présentation : pavé de l\'encadrante limité aux faits confirmés, lien en pied de page', () => {

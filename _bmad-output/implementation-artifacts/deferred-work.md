@@ -18,3 +18,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-assistant-ontrack.md`
   summary: Le contrôleur de l'assistant dans `app.js` n'est exécuté par aucun test : effacement de l'historique au changement de compte, plafond de 40 échanges, échappement du rendu, Échap.
   evidence: Aucun test ne charge `app.js` (seulement lu comme texte). Il faudrait extraire le rendu et la gestion du propriétaire dans une aide sans DOM, ou ajouter un banc DOM.
+- source_spec: `_bmad-output/implementation-artifacts/spec-discussions-etudiants.md`
+  summary: La synchronisation entre onglets (écouteur `storage`, `rerenderChat`, minuterie, brouillons dans `memory.chatDraft`) n'est exécutée par aucun test automatisé.
+  evidence: Aucun test ne charge `app.js`. Seul le contrôle manuel dans Chrome (hors dépôt) l'a vérifiée. Il faudrait un banc DOM (`node:vm` avec `window`/`document` simulés), à mutualiser avec l'entrée sur l'assistant.
