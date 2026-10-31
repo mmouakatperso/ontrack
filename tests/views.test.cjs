@@ -354,3 +354,109 @@ test('présentation : pavé de l\'encadrante limité aux faits confirmés, lien 
   assert.match(shell, /<footer>[\s\S]*<a href="#presentation\/encadrement" data-i18n>Projet académique encadré par Dr Fatine Ouahtita — ENCG Casablanca<\/a>[\s\S]*<\/footer>/);
   assert.equal(O.i18n.dictionaries.en['Projet académique encadré par Dr Fatine Ouahtita — ENCG Casablanca'], 'Academic project supervised by Dr Fatine Ouahtita — ENCG Casablanca');
 });
+
+test('encadrante tutrice : trois cartes à l\'accueil, profil sans photo, matière, filtre niveau et administration', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  const home = render(store, ['accueil']);
+  const start = home.indexOf('aria-labelledby="tuteurs"');
+  const section = home.slice(start, home.indexOf('</section>', start));
+  assert.match(section, /<div class="grid three">/);
+  assert.equal((section.match(/<article class="tutor-card">/g) || []).length, 3);
+  const names = [...section.matchAll(/<h3>([^<]+)<\/h3>/g)].map(match => match[1]);
+  assert.deepEqual(names, ['Yassine Amrani', 'Lina El Fassi', 'Dr Fatine Ouahtita']);
+  assert.match(section, /Profils étudiants fictifs de démonstration[^<]*Dr Fatine Ouahtita, encadrante du projet, est une personne réelle/);
+  assert.doesNotMatch(section, /Profils fictifs de démonstration\./);
+  O.i18n.set('en');
+  let english;
+  try { english = render(store, ['accueil']); } finally { O.i18n.set('fr'); }
+  assert.match(english, /Student profiles are fictitious demo profiles[^<]*Dr Fatine Ouahtita, the project supervisor, is a real person/);
+
+  const profile = render(store, ['profil', 't4']);
+  const banner = profile.slice(profile.indexOf('<div class="profile-banner">'), profile.indexOf('<div class="split">'));
+  assert.match(banner, /<span class="avatar initials"[^>]*>FO<\/span>/);
+  assert.doesNotMatch(profile, /<img/, 'aucune photo');
+  assert.match(profile, /Anglais commercial/);
+  assert.match(profile, /Marketing/);
+  for (const chapter of ['Correspondance professionnelle', 'Réunions et présentations', 'Négociation commerciale', 'Vocabulaire du commerce international', 'Étude de marché']) assert.ok(profile.includes(chapter), chapter);
+  assert.match(banner, /★ 5\.0 \/ 5 <small>\(1 avis\)<\/small>/);
+  assert.match(profile, /Avis des étudiants \(1\)[\s\S]*★★★★★ 5 \/ 5/);
+  const languages = profile.slice(profile.indexOf('Langues et modes'), profile.indexOf('Types de séances'));
+  assert.match(languages, />Anglais</);
+  assert.doesNotMatch(languages, /Français/, 'le français n\'est plus proposé');
+
+  const subject = render(store, ['matieres', 'anglais-com']);
+  assert.match(subject, /1 tuteur\(s\) disponible\(s\)/);
+  assert.ok(subject.includes('Dr Fatine Ouahtita'));
+
+  const ui = { filters: { level: 'S8' }, gateway: {}, wizard: null };
+  const filtered = render(store, ['catalogue'], ui);
+  assert.ok(filtered.includes('Dr Fatine Ouahtita'), 'niveau hors liste classé au-dessus de S10');
+  assert.ok(filtered.includes('Yassine Amrani') && !filtered.includes('Lina El Fassi'), 'filtre toujours actif pour les autres');
+  ui.filters = { level: 'S10' };
+  assert.ok(render(store, ['catalogue'], ui).includes('Dr Fatine Ouahtita'));
+
+  assert.ok(!O.routes.connexion.render(contextFor(store, [])).includes('fatine'), 'absente de la connexion rapide');
+
+  store.login(...ACCOUNTS.admin);
+  const admin = render(store, ['admin', 'tuteurs']);
+  const card = admin.slice(admin.indexOf('<h3>Dr Fatine Ouahtita</h3>'));
+  assert.match(card.slice(0, 600), /fatine\.ouahtita@encg-casablanca\.demo/);
+  assert.match(card.slice(0, 600), /<span class="badge green">Validé<\/span>/, 'publiée');
+  store.setLevels(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'M1']);
+  assert.ok(store.get().levels.includes('M1'), 'les niveaux restent modifiables');
+  ui.filters = { level: 'Niveau retiré' };
+  assert.ok(render(store, ['catalogue'], ui).includes('Lina El Fassi'), 'filtre de niveau hors liste ignoré');
+
+  // Adam validé : la carte « FO » et la nouvelle mention restent à l'accueil.
+  store.setTutorStatus('t3', 'approved');
+  store.logout();
+  const after = render(store, ['accueil']);
+  const tutors = after.slice(after.indexOf('aria-labelledby="tuteurs"'));
+  assert.equal((tutors.slice(0, tutors.indexOf('</section>')).match(/<article class="tutor-card">/g) || []).length, 3);
+  assert.match(tutors, /<span class="avatar initials"[^>]*>FO<\/span>/);
+  assert.match(tutors, /Dr Fatine Ouahtita, encadrante du projet, est une personne réelle/);
+  assert.match(render(store, ['profil', 't4']), /Réserver avec Fatine</);
+
+  // Espace tuteur de l'encadrante : niveau « Professeure » sélectionné, prénom sans titre.
+  assert.equal(store.login('fatine.ouahtita@encg-casablanca.demo', 'Demo2026!').ok, true);
+  const own = render(store, ['tuteur', 'profil']);
+  assert.match(own, /<option value="Professeure" selected>Professeure<\/option>/);
+  assert.match(own, /Bonjour, Fatine\./);
+
+  // Encadrante suspendue : mention d'origine.
+  store.logout();
+  store.login(...ACCOUNTS.admin);
+  store.setTutorStatus('t4', 'suspended');
+  store.logout();
+  const suspended = render(store, ['accueil']);
+  assert.match(suspended, /Profils fictifs de démonstration\. Photos illustratives publiées avec consentement simulé\./);
+  assert.doesNotMatch(suspended, /Dr Fatine Ouahtita/);
+});
+
+test('équipe du projet : sept étudiants sous le pavé de l\'encadrante, icône pour la responsable ; liens sociaux du pied de page', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  const html = render(store, ['presentation']);
+  const supervisorEnd = html.indexOf('</section>', html.indexOf('<section class="supervisor"'));
+  const start = html.indexOf('<section class="team"');
+  assert.ok(start > supervisorEnd && start < html.indexOf('Trois profils, trois espaces'), 'juste après le pavé de l\'encadrante');
+  const section = html.slice(start, html.indexOf('</section>', start));
+  assert.match(section, /aria-labelledby="equipe"/);
+  assert.match(section, /<h2 id="equipe">L'équipe du projet<\/h2>/);
+  const names = [...section.matchAll(/<span class="team-name">([^<]+)<\/span>/g)].map(match => match[1]);
+  assert.deepEqual(names, ['Yasmine Merzak', 'Aya Mouakat', 'Salma Lahmar', 'Mohamed Taha Mabrouk', 'Leïla Lagzouli', 'Mohamed Ali Naami', 'Anas Lyanboui']);
+  assert.equal((section.match(/class="team-leader"/g) || []).length, 1, 'une seule icône');
+  assert.match(section, /Yasmine Merzak<\/span><svg class="team-leader"[^>]*role="img" aria-label="Responsable de l&#39;équipe"/);
+  assert.doesNotMatch(section, /Team Leader/);
+  O.i18n.set('en');
+  let english;
+  try { english = render(store, ['presentation']); } finally { O.i18n.set('fr'); }
+  assert.match(english, /<h2 id="equipe">The project team<\/h2>/);
+  assert.match(english, /aria-label="Team leader"/);
+
+  const shell = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const social = shell.slice(shell.indexOf('<ul class="social"'), shell.indexOf('</ul>', shell.indexOf('<ul class="social"')));
+  assert.match(social, /aria-label="Réseaux sociaux"/);
+  assert.match(social, /<a href="https:\/\/www\.instagram\.com\/stay_ontrack_\/" target="_blank" rel="noopener noreferrer">[\s\S]*?Instagram<\/a>/);
+  assert.match(social, /<a href="https:\/\/www\.tiktok\.com\/@stay___ontrack" target="_blank" rel="noopener noreferrer">[\s\S]*?TikTok<\/a>/);
+  assert.doesNotMatch(social, /xtok|_r=|_t=/, 'sans paramètres de suivi');
+});
