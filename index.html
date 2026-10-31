@@ -19,6 +19,7 @@
   <script defer src="views-student.js"></script>
   <script defer src="views-tutor.js"></script>
   <script defer src="views-admin.js"></script>
+  <script defer src="assistant.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -39,6 +40,17 @@
   <div id="storage-warning" role="status"></div>
   <div id="feedback" role="status" aria-live="polite" tabindex="-1"></div>
   <main id="main" tabindex="-1"></main>
+  <div id="assistant" class="assistant">
+    <button type="button" id="assistant-toggle" class="assistant-toggle" aria-expanded="false" aria-controls="assistant-panel"><span class="assistant-icon" aria-hidden="true">?</span><span data-i18n>Assistant</span></button>
+    <section id="assistant-panel" class="assistant-panel" role="dialog" aria-modal="false" aria-labelledby="assistant-title" aria-describedby="assistant-notice" hidden>
+      <div class="assistant-head"><h2 id="assistant-title" data-i18n>Assistant ONTRACK</h2><button type="button" class="assistant-close" data-assistant="close" aria-label="Fermer l'assistant" data-i18n-attrs="aria-label"><span aria-hidden="true">×</span></button></div>
+      <p class="assistant-notice" id="assistant-notice" data-i18n>Assistant simulé : réponses préprogrammées, sans intelligence artificielle ni envoi de données</p>
+      <div class="assistant-log" id="assistant-log" role="log" aria-live="polite" aria-label="Conversation avec l'assistant" data-i18n-attrs="aria-label" tabindex="0"></div>
+      <div class="assistant-suggestions" id="assistant-suggestions" role="group" aria-label="Questions suggérées" data-i18n-attrs="aria-label"></div>
+      <form class="assistant-form" data-form="assistant" novalidate><label class="sr-only" for="assistant-input" data-i18n>Votre question</label><input id="assistant-input" name="question" type="text" autocomplete="off" aria-describedby="assistant-error"><button type="submit" class="button small" data-i18n>Envoyer</button></form>
+      <p class="assistant-error" id="assistant-error" role="status"></p>
+    </section>
+  </div>
   <footer>
     <div class="footer-brand"><a class="brand" href="#accueil"><img src="assets/logo-ontrack.png" width="915" height="285" alt="ONTRACK — Your Study, Our Priority."></a><p data-i18n>Tutorat universitaire et orientation académique pour les 12 ENCG du Maroc.</p><p data-i18n>contact@ontrack.example.org (fictif) · Lun.–ven., 9 h – 18 h</p><p class="footer-supervision"><a href="#presentation/encadrement" data-i18n>Projet académique encadré par Dr Fatine Ouahtita — ENCG Casablanca</a></p></div>
     <nav aria-label="Plateforme" data-i18n-attrs="aria-label"><h2 data-i18n>Plateforme</h2><a href="#presentation" data-i18n>Présentation</a><a href="#matieres" data-i18n>Catalogue des matières</a><a href="#catalogue" data-i18n>Tuteurs</a><a href="#reserver" data-i18n>Réserver une séance</a><a href="#orientation" data-i18n>Orientation</a><a href="#pods">Study Pods</a></nav>

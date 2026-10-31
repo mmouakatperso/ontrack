@@ -1,0 +1,121 @@
+---
+title: 'ONTRACK - Discussions entre étudiants (chat simulé)'
+type: 'feature'
+created: '2026-10-31'
+status: 'ready-for-dev'
+route: 'dispatch'
+review_loop_iteration: 0
+context:
+  - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-31.md'
+---
+
+<frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
+
+## Intent
+
+**Problème :** Le porteur du projet veut simuler des échanges entre étudiants pendant la soutenance (proposition §4.5, incrément D). Il n'existe ni messagerie entre étudiants, ni serveur.
+
+**Approche :**
+- Nouvel onglet `#etudiant/discussions` : salons par filière et par matière, discussions privées avec un étudiant réel ou une persona fictive, signalement des messages.
+- Les personas répondent automatiquement, 2 à 6 s plus tard sur l'horloge du store.
+- Deux onglets du même navigateur se parlent en direct grâce à l'événement `storage`. Pour cela, la session devient propre à chaque onglet.
+- L'admin modère les messages signalés dans `#admin/moderation`.
+
+## Boundaries & Constraints
+
+**Toujours :**
+- Aucun serveur ni réseau. La limite « pas de chat entre appareils » est affichée dans l'onglet et dans le README.
+- Seuls les étudiants écrivent. Message de 1 à 500 caractères. Si le message contient un e-mail ou un numéro de téléphone, il est publié avec un avertissement.
+- Le rappel « N'échangez ni coordonnées, ni documents, ni données personnelles » est permanent dans l'onglet.
+- Les personas portent « (fictive) » dans leur nom.
+- Un message privé reçu crée une notification locale.
+- Les règles du chat et la conservation locale des messages figurent dans `#cgu` et `#confidentialite`.
+- Toutes les nouvelles chaînes sont traduites en anglais.
+
+**Jamais :**
+- Exposer une discussion privée à un tiers autre que l'admin. L'admin ne voit que les messages signalés.
+- Perdre en silence un message écrit dans un autre onglet.
+- Modifier le cahier des charges.
+- Pousser sur `main`.
+
+**Décisions :**
+- La session est conservée dans le `sessionStorage` de l'onglet (proposition §4.5) : se connecter dans un onglet ne connecte pas les autres, et recharger l'onglet garde la session.
+- L'état partagé est relu avant chaque écriture. L'avertissement « Rechargez cette page » disparaît au profit d'un rechargement silencieux de l'état ; seule la vue Discussions se réaffiche automatiquement.
+- Un état v3 sans collection `chat` reçoit le chat du seed, sans réinitialiser le reste.
+
+## I/O & Edge-Case Matrix
+
+| Cas | Entrée / État | Résultat | Erreur |
+|---|---|---|---|
+| Envoi en salon | Salma, salon Gestion, « Qui révise la compta ? » | Message ajouté, réponse de persona planifiée entre 2 et 6 s | — |
+| Réponse planifiée | Horloge à l'échéance + `tick()` | Message de la persona distribué, entrée `pending` retirée | — |
+| Rôle | Tuteur, admin ou visiteur qui poste | Refus | `Accès refusé : connectez-vous avec un compte autorisé.` |
+| Longueur | `''` ou 501 caractères | Refus | `Message : 1 à 500 caractères.` |
+| Coordonnées | « écris-moi à a@b.ma » | Publié, avertissement renvoyé | — |
+| Privé | Salma → Omar | Fil créé ; Omar notifié ; le fil est invisible pour un tiers | — |
+| Deux onglets | Salma (A) et Omar (B) | B voit le message sans rechargement manuel | — |
+| Écriture concurrente | A et B écrivent à tour de rôle | Aucun message perdu | — |
+| Signalement | Omar signale un message de Salma | Le message apparaît dans `#admin/moderation` | Son propre message : refus |
+| Masquage | L'admin masque, puis rétablit | Le message est remplacé par « Message masqué par la modération », puis réapparaît | — |
+| Suppression de compte | Salma supprime son compte | Ses messages passent à « Compte supprimé » ; ses fils privés et les réponses planifiées pour elle disparaissent | — |
+| Ancien état v3 sans `chat` | `localStorage` issu de l'incrément A | Chat du seed ajouté, données conservées | — |
+
+</frozen-after-approval>
+
+## Code Map
+
+- `data.js` (`seed`, l. 160) : collection `chat`, avec le modèle de la proposition §4.5 :
+  - `rooms` : Tronc commun, Gestion, Commerce, Finance, plus deux salons de matière ;
+  - 3 ou 4 `personas` ;
+  - `messages`, `threads` et `pending`, avec 2 messages d'amorce par salon.
+- `store.js`
+  - `createStore(storage, clock, sessionStore)` : la session est lue et écrite dans `sessionStore` (clé `ontrack-session-v3`) et exclue de l'état écrit dans `storage`.
+  - Sans `sessionStore`, le comportement actuel est conservé (tests Node).
+  - `refresh()` relit `storage` en gardant la session de l'onglet. Elle est appelée au début de `transaction` et exposée dans l'API.
+  - `valid` (l. 68) : valide `chat`. Au chargement, un état sans `chat` reçoit celui du seed.
+  - Nouvelles fonctions :
+    - `chatPost({ roomId | threadId, text })` ;
+    - `chatStartThread(otherId)` ;
+    - `chatReport(messageId, reason)` ;
+    - `chatHide(messageId, hidden)`, réservée à l'admin ;
+    - `chatView()` : salons, fils de l'utilisateur, messages visibles.
+  - `tick` (l. 505) distribue les réponses `pending` arrivées à échéance (réponses par mots-clés).
+  - `removeAccount` (l. 1125) anonymise les messages de l'étudiant.
+  - L'import (l. 1059-1065) conserve la session de l'onglet.
+- `app.js`
+  - L'écouteur `storage` : sur `KEY`, il appelle `store.refresh()` et ne réaffiche la vue que si la route est `etudiant/discussions`. Le brouillon de message est conservé dans `memory`.
+  - Une minuterie d'une seconde, active seulement sur Discussions quand une réponse est attendue, rappelle `render()`.
+  - Le store reçoit `sessionStorage`.
+- `views-student.js` (`TABS`, l. 236) : onglet « Discussions ».
+  - Liste des salons, avec celui de la filière mis en avant.
+  - Fils privés et bouton « Écrire à… ».
+  - Fil de messages en `aria-live`, formulaire d'envoi, bouton « Signaler », rappels et limites.
+- `views-admin.js` (`moderation`, l. 80) : section « Messages signalés », avec les actions Masquer et Rétablir.
+- `views-public.js` (`cgu` l. 288, `confidentialite` l. 297) : règles du chat et conservation locale.
+- `i18n-en.js` : traductions, y compris les messages d'erreur du store (test i18n).
+- Tests :
+  - `tests/store.test.cjs` : tous les cas de la matrice, sur deux stores partageant le même `memoryStorage` (l. 17) avec deux `sessionStore` distincts.
+  - `tests/views.test.cjs` : rendu, garde et échappement de `etudiant/discussions`, et section de modération.
+
+## Tasks & Acceptance
+
+**Exécution :**
+- [ ] `data.js`, `store.js` -- session par onglet, `refresh`, collection `chat`, API, `tick`, suppression, migration -- règles métier.
+- [ ] `app.js` -- `sessionStorage`, synchronisation entre onglets, minuterie -- temps réel.
+- [ ] `views-student.js`, `views-admin.js`, `views-public.js`, `styles.css` -- onglet Discussions, modération, CGU et confidentialité -- interface.
+- [ ] `i18n-en.js` -- traductions -- test i18n vert.
+- [ ] `tests/store.test.cjs`, `tests/views.test.cjs` -- couvrir la matrice -- non-régression.
+- [ ] Docs : `docs/COUVERTURE_CDC.md`, `docs/DOCUMENTATION_TECHNIQUE.md` (modèle `chat`, session par onglet, synchronisation, évolution WebSocket), `docs/GUIDE_UTILISATEUR.md` (Discussions, modération), `README.md` (deux onglets Salma et Omar dans le scénario, limites) -- traçabilité.
+
+**Critères d'acceptation :**
+- Étant donné deux onglets connectés, l'un en Salma et l'autre en Omar, quand Salma envoie un message privé, alors il apparaît chez Omar en quelques secondes, sans rechargement manuel.
+- Étant donné Omar en train de remplir un formulaire de réservation dans un onglet, quand Salma poste dans un autre, alors son formulaire n'est pas réinitialisé.
+
+## Verification
+
+**Commandes :**
+- `node --test tests/*.test.cjs` -- tous les tests passent, sauf les 2 échecs tzdata connus du Node local 22.23.1.
+- `for f in *.js; do node --check "$f"; done` -- aucune erreur.
+
+**Contrôles manuels :**
+- Deux onglets de Chrome, Salma et Omar : message privé en direct, réponse de persona dans un salon, signalement visible côté admin. Vue Discussions à 390 px sans défilement horizontal.

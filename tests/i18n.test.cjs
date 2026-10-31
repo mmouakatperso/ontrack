@@ -54,7 +54,7 @@ test('dictionnaire : traductions non vides et paramètres identiques', () => {
 });
 
 test('chaque clé littérale t(\'…\') du code a sa traduction anglaise', () => {
-  for (const file of ['app.js', 'ui.js', 'views-public.js', 'views-student.js', 'views-tutor.js', 'views-admin.js']) {
+  for (const file of ['app.js', 'assistant.js', 'ui.js', 'views-public.js', 'views-student.js', 'views-tutor.js', 'views-admin.js']) {
     const source = read(file);
     assert.doesNotMatch(source, /\bt\(\s*["`](?!un compte )/, `${file} : clés en guillemets simples uniquement`);
     for (const [, raw] of source.matchAll(/\bt\(\s*'((?:[^'\\]|\\.)*)'/g)) assert.ok(Object.hasOwn(dictionary, unescapeJs(raw)), `${file} : clé non traduite « ${unescapeJs(raw)} »`);

@@ -31,13 +31,15 @@ Aucune dépendance, aucune compilation, aucun appel réseau. Node.js 22 sert uni
 | `views-student.js` | Assistant de réservation, paiement, confirmation, espace étudiant |
 | `views-tutor.js` | Espace tuteur |
 | `views-admin.js` | Espace administrateur, prototype QR |
-| `app.js` | Création du store, routeur par fragment, gardes de rôle, titre/description/robots par page, délégation `submit`/`click`/`change` |
+| `assistant.js` | Assistant ONTRACK (UMD, sans DOM) : `answer(text, { state, user, t })` renvoie `{ intent, text, links, suggestions }` ; normalisation, table d'intentions pondérées, réponses calculées à partir de l'état (voir « Assistant ONTRACK » ci-dessous) |
+| `app.js` | Création du store, routeur par fragment, gardes de rôle, titre/description/robots par page, délégation `submit`/`click`/`change` ; contrôleur de la bulle et du panneau de l'assistant |
 | `robots.txt`, `sitemap.xml` | Référencement (§19) |
 | `tests/store.test.cjs` | Tests métier (matrice de la spécification) |
 | `tests/views.test.cjs` | Rendu de toutes les routes sans navigateur, gardes, échappement, branchement des gestionnaires |
+| `tests/assistant.test.cjs` | Assistant : une phrase française et une phrase anglaise par intention, tarifs repris de l'état, personnalisation, visiteur sans donnée personnelle, effectifs jamais additionnés, repli, saisie invalide, liens internes, anglais sans clé manquante |
 | `tests/i18n.test.cjs` | Moteur de traduction, intégrité du dictionnaire anglais, couverture des clés du code et des messages du store, rendu anglais de toutes les routes sans libellé manquant |
 
-Ordre de chargement : `sha256.js → data.js → store.js → i18n.js → i18n-en.js → ui.js → views-*.js → app.js` (attribut `defer`).
+Ordre de chargement : `sha256.js → data.js → store.js → i18n.js → i18n-en.js → ui.js → views-*.js → assistant.js → app.js` (attribut `defer`).
 
 ### Langues de l'interface
 
@@ -51,6 +53,19 @@ Le sélecteur FR | EN du menu principal bascule toute l'interface (menus, libell
 4. Le gestionnaire renvoie un message ou `{ go, message }` ; l'application re-rend la page ou navigue.
 
 Les vues sont des fonctions pures `(ctx) => HTML` ; toutes les valeurs affichées passent par `escape`.
+
+### Assistant ONTRACK (`assistant.js`)
+
+Extension hors cahier des charges : un chatbot **simulé**, sans réseau ni intelligence artificielle. Le libellé permanent du panneau l'indique : « Assistant simulé : réponses préprogrammées, sans intelligence artificielle ni envoi de données ».
+
+- **Normalisation** (`normalize`) : minuscules, accents retirés (NFD), ponctuation remplacée par des espaces.
+- **Intentions** (`INTENTS`) : 15 intentions et un repli, soit 16 cas (salutation, tarifs, réservation, annulation, paiement, forfaits, progression, orientation, filières, devenir tuteur, Study Pods, compte, données personnelles, contact, projet). Chacune déclare des mots-clés français et anglais pondérés : mot exact, expression, ou radical terminé par `*`. Le score est la somme des poids présents, plus un bonus quand la question cite une destination (nom, ville, pays) ou un sigle de filière. Le score le plus haut l'emporte ; à égalité, l'ordre de la table ; la salutation (et les remerciements) ne l'emporte que si aucune autre intention n'a de score ; à 0, le repli (« Je n'ai pas compris » et 4 suggestions).
+- **Réponses** : calculées à chaque question à partir de l'état (`offers`, `config.policy`, `config.provider`, tuteurs `approved`, `subjects`, `programs` actifs et leurs `seats`, `constants.trackGroups`, `pods.locations`). Un tarif ou un délai modifié par l'administration est donc cité tel quel. Les effectifs d'une destination sont repris liste par liste, jamais additionnés ; un critère non communiqué n'est jamais inventé ; aucune admission n'est promise.
+- **Personnalisation** : seules les données de l'utilisateur connecté sont lues (forfaits `active`, séances à venir, paiements non aboutis, comptes rendus, niveau et filière). Un visiteur est invité à se connecter, sans aucune donnée personnelle.
+- **Langue** : `t` vaut par défaut un simple remplacement des `{paramètres}` (Node) ; le navigateur passe `O.i18n.t`. Les données (offres, établissements, filières, libellés de places) ne sont pas traduites. À chaque changement de langue, l'historique est recalculé dans la nouvelle langue.
+- **Sécurité** : la saisie (1 à 300 caractères, `validate`) n'est jamais reprise dans la réponse ; l'interface échappe la question et la réponse. Les liens proviennent de la liste fixe `ROUTES` (routes internes uniquement).
+- **Interface** (`index.html`, `app.js`, `styles.css`) : bulle fixe hors de `<main>`, panneau `role="dialog"` `aria-modal="false"` (Échap ferme et rend le focus au bouton), historique `role="log"` `aria-live="polite"`, puces de suggestions, formulaire traité hors du registre des vues. L'historique (`memory.assistant`, 40 échanges maximum) reste en mémoire d'onglet : ni enregistré ni envoyé, vidé à la déconnexion et à la réinitialisation (`O.clearMemory`) ainsi qu'à tout changement de compte dans l'onglet.
+- **Évolution vers une vraie IA** : un modèle de langage exigerait un **backend** (clé d'API jamais exposée au navigateur), un appel réseau explicite et consenti, une politique de conservation des questions, des garde-fous (pas de promesse d'admission, réponses limitées aux données ONTRACK) et une mention dans la politique de confidentialité. Le module à règles pourrait alors servir de repli hors ligne et de jeu de tests de non-régression.
 
 ## 3. Modèle de données (v3)
 
@@ -186,10 +201,11 @@ La démonstration peut, en l'état, être déposée sur tout hébergeur statique
 ## 11. Tests
 
 ```sh
-node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.test.cjs
+node --test tests/*.test.cjs
 ```
 
 - `store.test.cjs` : SHA-256, inscription et domaines, blocage de connexion, sessions et rôles, réinitialisation, retenue de créneau et expiration, refus (pris, passé, bloqué, prioritaire, tuteur en attente, pièce jointe), créneau prioritaire Stay, notification signée (rejeu, signature, montant), échec et nouvel essai, annulation et absence, reprogrammation et chevauchements, compte rendu et progression, avis et modération, forfaits (centimes, épuisement, validité, résiliation, expiration), mois Stay, tarifs historiques, validation d'un tuteur nouvellement inscrit, rémunération et suivi financier, stockage et repli mémoire, persistance, suppression de compte, administration et export/import, rappels et e-mails du §12, orientation, Study Pods et QR, disponibilités, fichiers et SEO.
 - `views.test.cjs` : rendu de chaque route pour chaque rôle, gestionnaires branchés pour chaque formulaire et action, absence de `undefined`/`NaN`, gardes et `noindex`, parcours §10.1 étape par étape, échappement des saisies.
 - `i18n.test.cjs` : traduction à la demande, messages composés du store, paramètres et balises identiques entre français et anglais, chaque clé `t('…')` et chaque message du store traduits, rendu anglais de chaque route et de chaque parcours sans libellé manquant, données non traduites.
+- `assistant.test.cjs` : une phrase française et une phrase anglaise pour chacun des 16 cas (15 intentions et un repli), classement (salutation suivie d'une question, « stay » hors forfait, suppression d'une réservation, sigles de filières), normalisation (casse, accents), tarifs et délais repris de l'état (tarif modifié par l'admin), crédits Stay d'Omar, visiteur et tuteur sans donnée personnelle, effectifs jamais additionnés et critères non inventés, filières par niveau, repli et suggestions comprises, saisie vide ou de plus de 300 caractères, injection (l'échappement de l'interface est vérifié par lecture du source d'`app.js` et par contrôle manuel, pas par exécution d'`app.js`), liens limités à la liste fixe, libellés calculés présents dans le dictionnaire anglais, anglais sans clé manquante, module sans réseau ni stockage.
 - Contrôles manuels complémentaires (non inclus dans le dépôt, à rejouer à la main ou avec un outil comme Chrome DevTools/Playwright ; réalisés une fois pendant le développement à 390 et 1440 px) : parcours §10.1 avec refus puis succès, blocage de connexion, inscription et vérification par la boîte mail, validation d'un tuteur, compte rendu et progression, absence de débordement à 390 et 1440 px sur toutes les routes, aucune erreur JavaScript.

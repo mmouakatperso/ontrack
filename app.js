@@ -6,10 +6,10 @@
   try { storage = window.localStorage; } catch (error) { storage = null; }
   const store = OntrackStore.createStore(storage);
   const main = document.getElementById('main');
-  const blankMemory = () => ({ filters: {}, subjectFilter: '', wizard: null, mailbox: '', pendingEmail: '', resetEmail: '', podsEmail: '', returnTo: '', gateway: {}, lastQr: null, notificationTest: '', adminStatus: '' });
+  const blankMemory = () => ({ filters: {}, subjectFilter: '', wizard: null, mailbox: '', pendingEmail: '', resetEmail: '', podsEmail: '', returnTo: '', gateway: {}, lastQr: null, notificationTest: '', adminStatus: '', assistant: [], assistantOwner: null });
   const memory = blankMemory();
   // Efface toute la mémoire propre à l'onglet (déconnexion, réinitialisation, restauration).
-  O.clearMemory = () => { for (const key of Object.keys(memory)) delete memory[key]; Object.assign(memory, blankMemory()); };
+  O.clearMemory = () => { for (const key of Object.keys(memory)) delete memory[key]; Object.assign(memory, blankMemory()); renderAssistant(); };
   const roleLabels = { student: 'étudiant', tutor: 'tuteur', admin: 'administrateur' };
   const spaces = { student: '#etudiant/apercu', tutor: '#tuteur/apercu', admin: '#admin/apercu' };
   let lastRoute = '';
@@ -46,6 +46,7 @@
       for (const [name, key] of Object.entries(originals.get(element))) element.setAttribute(name, t(key));
     }
     for (const button of document.querySelectorAll('[data-lang]')) button.setAttribute('aria-pressed', String(button.dataset.lang === lang));
+    renderAssistant();
   }
   function account(user) {
     const box = document.getElementById('account');
@@ -61,6 +62,7 @@
     const name = page || 'accueil';
     const definition = O.routes[name];
     const user = store.currentUser();
+    syncAssistantOwner(user);
     document.getElementById('storage-warning').textContent = msg(store.warning());
     account(user);
     const access = O.access(definition, user);
@@ -138,6 +140,84 @@
     if (event.key === OntrackStore.KEY) feedback(t('Les données ont changé dans un autre onglet. Rechargez cette page avant de poursuivre.'), true);
     if (event.key === O.i18n.STORAGE_KEY && event.newValue && event.newValue !== O.i18n.get()) { O.i18n.set(event.newValue); applyLanguage(); render(); }
   });
+  // Assistant ONTRACK : bulle et panneau hors de <main>. L'historique (memory.assistant) reste en mémoire
+  // d'onglet : ni enregistré ni envoyé, vidé par O.clearMemory. Tout texte est échappé ; les liens viennent
+  // de la liste fixe OntrackAssistant.ROUTES. Formulaire et puces sont traités ici, hors du registre des vues.
+  const assistant = {
+    box: document.getElementById('assistant'),
+    toggle: document.getElementById('assistant-toggle'),
+    panel: document.getElementById('assistant-panel'),
+    log: document.getElementById('assistant-log'),
+    chips: document.getElementById('assistant-suggestions'),
+    input: document.getElementById('assistant-input'),
+    error: document.getElementById('assistant-error')
+  };
+  const ASSISTANT_HISTORY = 40;
+  const assistantContext = () => { store.tick(); return { state: store.get(), user: store.currentUser(), t, locale: O.i18n.locale(), money: O.ui.money, now: store.now() }; };
+  const assistantLinks = links => links.filter(item => Object.prototype.hasOwnProperty.call(OntrackAssistant.ROUTES, item.href)).map(item => `<a href="${escape(item.href)}">${escape(item.label)}</a>`).join('');
+  const assistantExchange = entry => `<div class="assistant-msg user"><span class="sr-only">${escape(t('Vous'))} : </span><p>${escape(entry.question)}</p></div><div class="assistant-msg bot"><span class="sr-only">${escape(t('Assistant'))} : </span><p>${escape(entry.answer.text)}</p>${entry.answer.links.length ? `<p class="assistant-links">${assistantLinks(entry.answer.links)}</p>` : ''}</div>`;
+  const assistantChips = list => list.map(text => `<button type="button" class="assistant-chip" data-suggestion="${escape(text)}">${escape(text)}</button>`).join('');
+  function renderAssistant() {
+    if (!assistant.box) return;
+    const lang = O.i18n.get();
+    // Les réponses déjà affichées sont recalculées dans la langue active.
+    for (const entry of memory.assistant || []) if (entry.lang !== lang) { entry.answer = OntrackAssistant.answer(entry.question, assistantContext()); entry.lang = lang; }
+    const history = memory.assistant || [];
+    assistant.log.innerHTML = `<div class="assistant-msg bot"><p>${escape(t('Bonjour ! Je réponds aux questions fréquentes à partir des données de la démonstration. Posez votre question ou choisissez une suggestion.'))}</p></div>${history.map(assistantExchange).join('')}`;
+    assistant.chips.innerHTML = assistantChips(history.length ? history[history.length - 1].answer.suggestions : OntrackAssistant.defaultSuggestions(t));
+    assistantError('');
+    assistant.log.scrollTop = assistant.log.scrollHeight;
+  }
+  // Message d'erreur de saisie, reflété par aria-invalid sur le champ.
+  function assistantError(message) {
+    assistant.error.textContent = message;
+    if (message) assistant.input.setAttribute('aria-invalid', 'true'); else assistant.input.removeAttribute('aria-invalid');
+  }
+  function askAssistant(raw) {
+    const problem = OntrackAssistant.validate(raw, t);
+    if (problem) { assistantError(problem); assistant.input.focus(); return; }
+    const question = raw.trim();
+    const context = assistantContext();
+    syncAssistantOwner(context.user);
+    const entry = { question, lang: O.i18n.get(), answer: OntrackAssistant.answer(question, context) };
+    memory.assistant.push(entry);
+    if (memory.assistant.length > ASSISTANT_HISTORY) { memory.assistant.splice(0, memory.assistant.length - ASSISTANT_HISTORY); renderAssistant(); }
+    else assistant.log.insertAdjacentHTML('beforeend', assistantExchange(entry));
+    assistant.chips.innerHTML = assistantChips(entry.answer.suggestions);
+    assistantError('');
+    assistant.input.value = '';
+    assistant.log.scrollTop = assistant.log.scrollHeight;
+  }
+  // L'historique appartient à un seul utilisateur : tout changement de compte (connexion rapide, expiration,
+  // suppression) l'efface, pour qu'aucune réponse personnalisée ne reste visible à un autre utilisateur.
+  function syncAssistantOwner(user) {
+    const owner = user ? user.id : null;
+    if (memory.assistantOwner === owner) return;
+    memory.assistantOwner = owner;
+    if (memory.assistant.length) { memory.assistant = []; renderAssistant(); }
+  }
+  function setAssistantOpen(open, returnFocus) {
+    assistant.panel.hidden = !open;
+    assistant.toggle.setAttribute('aria-expanded', String(open));
+    assistant.box.classList.toggle('open', open);
+    if (open) { assistant.log.scrollTop = assistant.log.scrollHeight; assistant.input.focus(); }
+    else if (returnFocus) assistant.toggle.focus();
+  }
+  if (assistant.box) {
+    assistant.toggle.addEventListener('click', () => setAssistantOpen(assistant.panel.hidden, true));
+    assistant.panel.addEventListener('submit', event => { event.preventDefault(); askAssistant(assistant.input.value); });
+    assistant.panel.addEventListener('click', event => {
+      if (event.target.closest('[data-assistant="close"]')) { setAssistantOpen(false, true); return; }
+      const chip = event.target.closest('[data-suggestion]');
+      if (chip) { askAssistant(chip.dataset.suggestion); assistant.input.focus(); return; }
+      const link = event.target.closest('a[href^="#"]');
+      // Un lien suivi ferme le panneau ; le focus reste sur le bouton si la page ne change pas.
+      if (link) setAssistantOpen(false, link.getAttribute('href') === location.hash);
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !assistant.panel.hidden && assistant.box.contains(document.activeElement)) { event.preventDefault(); setAssistantOpen(false, true); }
+    });
+  }
   applyLanguage();
   render();
 }());

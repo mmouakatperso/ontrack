@@ -16,7 +16,7 @@ Les fonctions citées sont celles de l'objet retourné par `createStore()` dans 
 
 ### Tests cités
 
-Commande : `node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.test.cjs`.
+Commande : `node --test tests/*.test.cjs`.
 
 | Réf. | Fichier | Nom exact du test |
 |---|---|---|
@@ -69,6 +69,17 @@ Commande : `node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.tes
 | V11 | views | inscription : filières regroupées par cycle et filtrées selon le niveau choisi |
 | V12 | views | administration : le gestionnaire admin-program analyse les places et vide les champs non communiqués |
 | V13 | views | présentation : pavé de l'encadrante limité aux faits confirmés, lien en pied de page |
+| A1 | assistant | 15 intentions et un repli (16 cas) : une phrase française et une phrase anglaise reconnues |
+| A2 | assistant | donnée modifiée par l'admin : le nouveau tarif est cité tel quel |
+| A3 | assistant | personnalisé : Omar voit ses crédits Stay restants, d'après ses forfaits actifs |
+| A4 | assistant | visiteur : invité à se connecter, sans aucune donnée personnelle |
+| A5 | assistant | orientation : effectifs tels que communiqués, jamais additionnés, sans critère inventé |
+| A6 | assistant | saisie vide ou trop longue : rien n'est envoyé, message de longueur |
+| A7 | assistant | injection : la saisie n'est jamais reprise dans la réponse, l'interface l'échappe (l'échappement de l'interface est vérifié par lecture du source d'`app.js` et par contrôle manuel, pas par exécution d'`app.js`) |
+| A8 | assistant | liens : uniquement des routes internes de la liste fixe |
+| A9 | assistant | anglais actif : réponses en anglais, données non traduites, aucune clé manquante |
+| A10 | assistant | classement : salutation + vraie question, « stay » hors forfait, suppression d'une réservation, sigles |
+| A11 | assistant | libellés calculés (liens ROUTES, suggestions) présents dans le dictionnaire anglais |
 
 Contrôles manuels complémentaires (non inclus dans le dépôt, à rejouer à la main ou avec un outil comme Chrome DevTools/Playwright ; réalisés une fois pendant le développement à 390 et 1440 px) : parcours §10.1 avec échec puis succès de paiement, blocage de connexion, inscription + vérification via la boîte mail, compte rendu et progression, validation d'un tuteur, absence de débordement et d'erreur JavaScript sur toutes les routes.
 
@@ -450,6 +461,7 @@ Ajouts demandés par le porteur du projet après la livraison ([sprint change pr
 | Extension | Écran | Tests | Statut |
 |---|---|---|---|
 | Encadrement académique : pavé de Dr Fatine Ouahtita (faits publics confirmés, monogramme « FO », ni photo ni coordonnées) et lien en pied de page | `#presentation`, pied de page | V13 | 🟡 implémenté ; contenu à faire valider par l'intéressée avant toute fusion dans `main` |
+| Assistant ONTRACK : chatbot simulé à règles (`assistant.js`), 15 intentions et un repli (16 cas) en français et en anglais, réponses calculées à partir de l'état et personnalisées pour l'utilisateur connecté ; sans réseau ni IA, historique en mémoire d'onglet | bulle « Assistant » sur toutes les pages (panneau `role="dialog"`, Échap ferme) | A1 à A11 ; I18n (scan de `assistant.js`) | ✅ |
 
 ## Limites de simulation (récapitulatif)
 
@@ -460,6 +472,7 @@ Ajouts demandés par le porteur du projet après la livraison ([sprint change pr
 - Contrôles d'accès appliqués dans le navigateur uniquement ; à reproduire côté serveur en production.
 - Pièces jointes : métadonnées seulement (nom, type, taille).
 - QR Study Pods : aperçu visuel non scannable, prototype réservé à l'administration.
+- Assistant ONTRACK : réponses préprogrammées par mots-clés, sans intelligence artificielle ni envoi de données ; une question hors des 15 intentions reçoit le repli : « Je n'ai pas compris » et des suggestions.
 - Routage par fragment (`#…`) ; le plan de site décrit les chemins propres prévus en production.
 - Aucun outil d'analyse d'audience ; optimisation des requêtes base de données non applicable.
 - Déclaration CNDP, hébergement et nom de domaine à réaliser avant lancement.

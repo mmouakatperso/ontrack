@@ -15,3 +15,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-donnees-reelles-encg-filieres-destinations.md`
   summary: Aucun test ne vérifie l'ordre de tri des recommandations (éligibles d'abord, puis part de critères connus remplis).
   evidence: `store.test.cjs` trie les identifiants avant de comparer (l. 528) ; revenir à `b.met - a.met` ne ferait échouer aucun test. Seul l'ordre d'affichage est en jeu.
+- source_spec: `_bmad-output/implementation-artifacts/spec-assistant-ontrack.md`
+  summary: Le contrôleur de l'assistant dans `app.js` n'est exécuté par aucun test : effacement de l'historique au changement de compte, plafond de 40 échanges, échappement du rendu, Échap.
+  evidence: Aucun test ne charge `app.js` (seulement lu comme texte). Il faudrait extraire le rendu et la gestion du propriétaire dans une aide sans DOM, ou ajouter un banc DOM.
