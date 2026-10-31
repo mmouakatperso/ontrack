@@ -255,3 +255,26 @@ test('administration : le gestionnaire admin-program analyse les places et vide 
   assert.deepEqual(saved.tracks, ['Gestion', 'Commerce']);
   assert.equal(saved.active, true);
 });
+
+test('présentation : pavé de l\'encadrante limité aux faits confirmés, lien en pied de page', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  const html = render(store, ['presentation', 'encadrement']);
+  const start = html.indexOf('<section class="supervisor"');
+  assert.ok(start > html.indexOf('Nos objectifs') && start < html.indexOf('Trois profils, trois espaces'), 'entre « Nos objectifs » et « Trois profils »');
+  const section = html.slice(start, html.indexOf('</section>', start));
+  assert.match(section, /aria-labelledby="encadrement"/);
+  assert.match(section, /<h2 id="encadrement">Encadrement académique<\/h2><h3>Dr Fatine Ouahtita<\/h3>/);
+  assert.match(section, /aria-hidden="true">FO</);
+  assert.match(section, /Laboratoire de recherche prospective en économie et gestion/);
+  assert.match(section, /« Engagement Is Not Enough[^»]+», IJSRM, vol\. 14, n° 4, 2026 \(co-autrice\)/);
+  assert.match(section, /Unveiling the Eco-Digital Nexus/);
+  assert.doesNotMatch(section, /<img|@|mailto:|tel:|\+212|\d{2}[ .]?\d{2}[ .]?\d{2}[ .]?\d{2}[ .]?\d{2}/, 'ni photo ni coordonnées');
+  O.i18n.set('en');
+  let english;
+  try { english = render(store, ['presentation']); } finally { O.i18n.set('fr'); }
+  assert.match(english, /<h2 id="encadrement">Academic supervision<\/h2>/);
+  assert.match(english, /"Engagement Is Not Enough[^"]+", IJSRM, vol\. 14, no\. 4, 2026 \(co-author\)/);
+  const shell = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(shell, /<footer>[\s\S]*<a href="#presentation\/encadrement" data-i18n>Projet académique encadré par Dr Fatine Ouahtita — ENCG Casablanca<\/a>[\s\S]*<\/footer>/);
+  assert.equal(O.i18n.dictionaries.en['Projet académique encadré par Dr Fatine Ouahtita — ENCG Casablanca'], 'Academic project supervised by Dr Fatine Ouahtita — ENCG Casablanca');
+});

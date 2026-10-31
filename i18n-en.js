@@ -369,7 +369,7 @@
     'De petits espaces privés près des campus pour retrouver votre tuteur dans un lieu adapté au travail. Ouverture prévue en phase 3.': 'Small private spaces near campuses where you can meet your tutor in a place suited to work. Opening planned for phase 3.',
     'Découvrir le concept': 'Discover the concept',
     'Présentation d\'ONTRACK': 'About ONTRACK',
-    'Concept, objectifs et fonctionnement d\'ONTRACK, plateforme de tutorat universitaire et d\'orientation académique des ENCG.': 'Concept, objectives and workings of ONTRACK, the university tutoring and academic guidance platform for the ENCG schools.',
+    'Concept, objectifs, fonctionnement et encadrement académique d\'ONTRACK, plateforme de tutorat universitaire et d\'orientation académique des ENCG.': 'Concept, objectives, workings and academic supervision of ONTRACK, the university tutoring and academic guidance platform for the ENCG schools.',
     'Une plateforme dédiée exclusivement aux étudiants des 12 ENCG du Maroc.': 'A platform dedicated exclusively to students at the 12 ENCG schools in Morocco.',
     'Pourquoi ONTRACK ?': 'Why ONTRACK?',
     'Chapitres incompris, cours manqués, accumulation de travail, manque de temps pour chercher de l\'aide, préparation insuffisante aux examens : ONTRACK propose des séances individuelles adaptées à chaque étudiant, avec un suivi de progression par matière et par chapitre.': 'Chapters you don\'t understand, missed classes, a growing workload, no time to look for help, insufficient exam preparation: ONTRACK offers one-to-one sessions tailored to each student, with progress tracking by subject and by chapter.',
@@ -1378,5 +1378,17 @@
     'Ex. : Liste principale : 20': 'E.g.: Liste principale : 20',
     'Listes principales et listes d\'attente restent distinctes : elles ne sont jamais additionnées.': 'Main lists and waiting lists stay separate: they are never added together.',
     'Filières éligibles (aucune cochée : à confirmer)': 'Eligible tracks (none ticked: to be confirmed)'
+  });
+
+  // Encadrement académique (présentation, pied de page) --------------------------------
+  add({
+    'Projet académique encadré par Dr Fatine Ouahtita — ENCG Casablanca': 'Academic project supervised by Dr Fatine Ouahtita — ENCG Casablanca',
+    'Encadrement académique': 'Academic supervision',
+    'Professeure à l\'École Nationale de Commerce et de Gestion de Casablanca (Université Hassan II de Casablanca), rattachée au Laboratoire de recherche prospective en économie et gestion.': 'Professor at the École Nationale de Commerce et de Gestion de Casablanca (Hassan II University of Casablanca), member of the Laboratoire de recherche prospective en économie et gestion.',
+    '<strong>Domaines :</strong> marketing digital, marketing d\'influence, communication de marque, digitalisation et durabilité.': '<strong>Fields:</strong> digital marketing, influencer marketing, brand communication, digitalisation and sustainability.',
+    '<strong>Publications récentes :</strong>': '<strong>Recent publications:</strong>',
+    '« {title} », {journal}, vol. {volume}, n° {issue}, {year} (co-autrice).': '"{title}", {journal}, vol. {volume}, no. {issue}, {year} (co-author).',
+    '« {title} », {year} (co-autrice).': '"{title}", {year} (co-author).',
+    'Elle encadre le projet ONTRACK, ainsi que d\'autres projets étudiants en marketing et des travaux doctoraux à l\'ENCG Casablanca.': 'She supervises the ONTRACK project, as well as other student marketing projects and doctoral research at ENCG Casablanca.'
   });
 }(typeof globalThis !== 'undefined' ? globalThis : this));

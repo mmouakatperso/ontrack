@@ -68,6 +68,7 @@ Commande : `node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.tes
 | V10 | views | orientation : moyenne vidée par l'admin → carte « À confirmer auprès de l'ENCG » ; places analysées |
 | V11 | views | inscription : filières regroupées par cycle et filtrées selon le niveau choisi |
 | V12 | views | administration : le gestionnaire admin-program analyse les places et vide les champs non communiqués |
+| V13 | views | présentation : pavé de l'encadrante limité aux faits confirmés, lien en pied de page |
 
 Contrôles manuels complémentaires (non inclus dans le dépôt, à rejouer à la main ou avec un outil comme Chrome DevTools/Playwright ; réalisés une fois pendant le développement à 390 et 1440 px) : parcours §10.1 avec échec puis succès de paiement, blocage de connexion, inscription + vérification via la boîte mail, compte rendu et progression, validation d'un tuteur, absence de débordement et d'erreur JavaScript sur toutes les routes.
 
@@ -441,6 +442,14 @@ Notifications internes complémentaires : `#etudiant/notifications`, `#tuteur/ap
 | 12. Maintenance et anomalies | documentation technique |
 
 **§24 Points à confirmer (ouverts).** Domaines e-mail officiels des 12 ENCG · prestataire de paiement (CMI ou Payzone) · conditions de remboursement et d'annulation (valeurs actuelles : réglages de démonstration) · calendrier du programme pilote volontaire · règles de rémunération · matières disponibles au lancement · modalités de validation des profils · programmes internationaux réels · budget, hébergement et maintenance · calendrier et périmètre de chaque phase.
+
+## Extensions hors cahier des charges
+
+Ajouts demandés par le porteur du projet après la livraison ([sprint change proposal du 31 octobre 2026](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-31.md)). Le cahier des charges n'est pas modifié.
+
+| Extension | Écran | Tests | Statut |
+|---|---|---|---|
+| Encadrement académique : pavé de Dr Fatine Ouahtita (faits publics confirmés, monogramme « FO », ni photo ni coordonnées) et lien en pied de page | `#presentation`, pied de page | V13 | 🟡 implémenté ; contenu à faire valider par l'intéressée avant toute fusion dans `main` |
 
 ## Limites de simulation (récapitulatif)
 
