@@ -73,6 +73,8 @@ Etudiant : seances, historique, forfaits, reprogrammation, comptes rendus, avis 
 
 ## Spec Change Log
 
+- 2026-10-31 : la clause « programmes fictifs, sans partenariat inventé » du périmètre Orientation est renégociée par le porteur du projet. Les 9 destinations réelles communiquées par l'ENCG remplacent les programmes fictifs. La règle « aucune promesse d'admission » est maintenue. Voir `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-31.md` et la spec d'évolution à venir `spec-evolutions-donnees-reelles-encg.md`.
+
 ## Review Triage Log
 
 | Constat | Verdict | Preuve et traitement |

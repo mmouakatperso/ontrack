@@ -98,6 +98,8 @@ Modèle v2 (indicatif) : `config{domains, policy{cancelHours, rescheduleHours}, 
 
 ## Spec Change Log
 
+- 2026-10-31 : le porteur du projet renégocie la contrainte figée « aucun établissement partenaire réel ; les liens “source officielle” pointent vers `example.org` ». Les destinations réelles de l'ENCG, avec leurs liens officiels en `https`, la remplacent. Les critères non communiqués sont affichés « à confirmer » et ne sont jamais inventés. La règle « aucune promesse d'admission » est maintenue. Le bloc figé ci-dessus reste intact pour la traçabilité. Voir `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-31.md`.
+
 ## Review Triage Log
 
 | Constat | Verdict | Preuve et traitement |

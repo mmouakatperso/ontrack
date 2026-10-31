@@ -35,6 +35,8 @@ test('messages du store traduits à l\'affichage, y compris composés', () => {
     assert.equal(i18n.message('Réservation introuvable.'), 'Booking not found.');
     assert.equal(i18n.message('Annulation hors délai : moins de 24 h avant le début. La séance reste due.'), 'Too late to cancel: less than 24 h before the start. The session remains payable.');
     assert.equal(i18n.message('Domaine non autorisé pour l\'ENCG Fès. Utilisez votre adresse officielle (@etu.encg-fes.demo).'), 'Domain not allowed for ENCG Fès. Use your official address (@etu.encg-fes.demo).');
+    assert.equal(i18n.message('Filière non proposée au niveau S3.'), 'Track not offered at level S3.');
+    assert.equal(i18n.message('Moyenne minimale'), 'Minimum average');
     assert.equal(i18n.message('Already English.'), 'Already English.');
     assert.equal(i18n.message(''), '');
   });
@@ -110,8 +112,8 @@ test('toutes les routes et tous les parcours se rendent en anglais sans libellé
     const retried = store.retryBooking(booking.id);
     store.gateway(retried.id, 'accepted');
     for (const route of [['confirmation', retried.id], ['etudiant', 'forfaits'], ['etudiant', 'apercu']]) render(route);
-    store.saveOrientationProfile({ encg: 'Settat', level: 'S5', track: 'Finance', average: '13', validated: '', languages: [{ language: 'Français', level: 'C1' }], countries: ['France'], programType: 'Indifférent' });
-    store.requestConsultation({ programIds: ['p1'], topic: 'Aide pour mon dossier', availability: '' });
+    store.saveOrientationProfile({ encg: 'Settat', level: 'S7', track: 'Finance', average: '13', validated: '', languages: [{ language: 'Français', level: 'C1' }], countries: ['France'], programType: 'Indifférent' });
+    store.requestConsultation({ programIds: ['hec-liege'], topic: 'Aide pour mon dossier', availability: '' });
     render(['orientation']);
     // Tuteur après la fin d'une séance (compte rendu), période bloquée, avis signalé.
     instant = new Date(Date.parse(store.get().bookings.find(item => item.id === 'b-seed-3').start) + 2 * 3600000);

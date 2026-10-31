@@ -39,7 +39,7 @@ Commande : `node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.tes
 | S17 | store | tarifs historiques : une modification ne change que les nouvelles réservations |
 | S18 | store | tuteur nouvellement inscrit : vérifié, validé par l'admin, puis visible et réservable |
 | S19 | store | rémunération : 0 DH en phase volontaire, tarif §9.2 figé au compte rendu, versements et suivi financier |
-| S20 | store | stockage : clé v2, ancien état v1 réinitialisé, repli mémoire si indisponible ou corrompu |
+| S20 | store | stockage : clé v3, anciens états v1 et v2 remplacés par le seed v3, repli mémoire si indisponible ou corrompu |
 | S21 | store | persistance entre instances et échec de sauvegarde signalé |
 | S22 | store | suppression de compte : mot de passe requis, données personnelles effacées, comptabilité anonymisée |
 | S23 | store | administration : domaines, référentiel, politique, comptes, export/import |
@@ -59,10 +59,15 @@ Commande : `node --test tests/store.test.cjs tests/views.test.cjs tests/i18n.tes
 | S33 | store | matières du tuteur : ajout → revalidation, chapitres seuls → publié, retrait refusé si séance |
 | S34 | store | session : la navigation (tick) prolonge une session valide |
 | S35 | store | orientation : date limite dépassée (fin de journée au Maroc) jamais éligible |
+| S36 | store | filières : cohérence niveau / filière à l'inscription, au profil et à l'orientation |
 | V5 | views | garde d’accès pure (O.access) : redirections et robots par rôle |
 | V6 | views | gestionnaires réels : assistant jusqu’au paiement, passerelle, compte rendu et progression |
 | V7 | views | catalogue : tuteur en attente masqué, visible après validation |
 | V8 | views | boîte mail simulée : limitée au compte connecté et aux adresses saisies dans l’onglet |
+| V9 | views | orientation : 9 destinations réelles, effectifs tels que communiqués, critères inconnus « à confirmer » |
+| V10 | views | orientation : moyenne vidée par l'admin → carte « À confirmer auprès de l'ENCG » ; places analysées |
+| V11 | views | inscription : filières regroupées par cycle et filtrées selon le niveau choisi |
+| V12 | views | administration : le gestionnaire admin-program analyse les places et vide les champs non communiqués |
 
 Contrôles manuels complémentaires (non inclus dans le dépôt, à rejouer à la main ou avec un outil comme Chrome DevTools/Playwright ; réalisés une fois pendant le développement à 390 et 1440 px) : parcours §10.1 avec échec puis succès de paiement, blocage de connexion, inscription + vérification via la boîte mail, compte rendu et progression, validation d'un tuteur, absence de débordement et d'erreur JavaScript sur toutes les routes.
 
@@ -75,7 +80,7 @@ Contrôles manuels complémentaires (non inclus dans le dépôt, à rejouer à l
 | Exigence (CDC) | Écran / action | Preuve | Statut / remarque |
 |---|---|---|---|
 | Créer un compte et vérifier l'adresse universitaire | `#inscription`, `#verification` · `register`, `verifyEmail`, `resendCode` | S2 | ✅ code envoyé dans la boîte simulée 🟡 |
-| Sélectionner ENCG, niveau, filière | `#inscription` (champs ENCG, niveau, filière) · `updateProfile` (`#etudiant/profil`) | S2, V1 | ✅ |
+| Sélectionner ENCG, niveau, filière | `#inscription` (champs ENCG, niveau, filière) · `updateProfile` (`#etudiant/profil`) | S2, S36, V11 | ✅ filières réelles (plannings 2025-2026 de l'ENCG Casablanca), regroupées par cycle et filtrées selon le niveau ; incohérence refusée (« Filière non proposée au niveau S3. ») ; ⏳ intitulés développés des sigles à confirmer |
 | Rechercher des tuteurs par matière et compétence | `#catalogue` (filtres), `#reserver` étape 4 · `matchTutors` | S18, V3 | ✅ |
 | Décrire précisément ses difficultés | `#reserver` étape 2 (besoin) | S7, V3 | ✅ |
 | Réserver et payer des séances | `#reserver` → `#paiement/…` → `#confirmation/…` · `createBooking`, `gateway` | S9, V3 | ✅ paiement 🟡 |
@@ -299,12 +304,12 @@ Notifications internes complémentaires : `#etudiant/notifications`, `#tuteur/ap
 
 | Exigence (CDC) | Écran / action | Preuve | Statut / remarque |
 |---|---|---|---|
-| §14.1 Échanges et doubles diplômes | `#orientation` (6 programmes fictifs) | V1 | ✅ établissements fictifs |
+| §14.1 Échanges et doubles diplômes | `#orientation` (9 destinations communiquées par l'ENCG) | V1, V9 | ✅ destinations réelles, effectifs tels que communiqués (listes principales et d'attente jamais additionnées) ; ⏳ diffusion publique des places à confirmer avec l'ENCG |
 | §14.2 ENCG, niveau, filière, résultats, matières/semestres validés, langues, préférences géographiques, type de programme | formulaire `#orientation` · `saveOrientationProfile` | S25 | ✅ |
 | Données limitées au nécessaire | mention sur le formulaire, `#confidentialite` | — | ✅ |
-| §14.3 Programmes potentiellement adaptés | `recommendations` (6 critères affichés) | S25 | ✅ |
-| Nom, établissement, pays, mobilité, critères, langues, date limite, documents, source officielle | carte programme sur `#orientation` | V1 | ✅ liens sur `example.org` uniquement |
-| Informations gérées par l'administrateur | `#admin/orientation` · `saveProgram` | S25 | ✅ |
+| §14.3 Programmes potentiellement adaptés | `recommendations` (6 critères affichés ; un critère non communiqué est « à confirmer », ni rempli ni bloquant, exclu du décompte) | S25, V9 | 🟡 mécanisme fonctionnel, mais aucune destination n'a encore de critère communiqué : seules la destination et le type de mobilité (Shandong, Sherbrooke) sont réellement comparés |
+| Nom, établissement, pays, mobilité, critères, langues, date limite, documents, source officielle | carte destination sur `#orientation` (places, note de source, lien « Site officiel de l'établissement ») | V1, V9, V10 | 🟡 nom, établissement, pays, effectifs et liens officiels (`https://` uniquement) réels ; critères, langues, date limite et documents « À confirmer auprès de l'ENCG » pour toutes les destinations (champs prêts, à renseigner par l'administration) |
+| Informations gérées par l'administrateur | `#admin/orientation` · `saveProgram` (champs facultatifs, places, note de source) | S25, V10, V12 | ✅ |
 | Jamais de garantie d'admission | avertissements `#orientation`, e-mail, `#cgu` | S25 | ✅ |
 | §14.4 Entretien avec un enseignant ou conseiller | formulaire `#orientation` · `requestConsultation` ; suivi `#admin/orientation` · `updateConsultation` | S25 | 🟡 pas de visio réelle |
 
@@ -424,7 +429,7 @@ Notifications internes complémentaires : `#etudiant/notifications`, `#tuteur/ap
 |---|---|
 | 1. Site fonctionnel et responsive | `index.html`, `styles.css`, `app.js`, `ui.js`, `views-*.js`, `assets/` |
 | 2. Code source | dépôt (sans dépendance ni compilation) |
-| 3. Base de données et documentation | `data.js` (jeu initial), `store.js` (modèle v2), [documentation technique](DOCUMENTATION_TECHNIQUE.md) |
+| 3. Base de données et documentation | `data.js` (jeu initial), `store.js` (modèle v3), [documentation technique](DOCUMENTATION_TECHNIQUE.md) |
 | 4. Tableau de bord administrateur | `#admin/*` (`views-admin.js`) |
 | 5. Accès techniques | comptes de démonstration sur `#connexion` (voir README) |
 | 6. Documentation utilisateur | [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md) |
@@ -441,8 +446,8 @@ Notifications internes complémentaires : `#etudiant/notifications`, `#tuteur/ap
 
 - Aucun paiement réel : passerelle CMI/Payzone simulée, aucune donnée bancaire saisie ; secret de signature présent côté client.
 - Aucun e-mail réel : boîte mail simulée (`#boite-mail`), accessible à tous les visiteurs de la démo.
-- Aucune visioconférence, aucune intégration universitaire, aucun établissement partenaire réel (sources sur `example.org`).
-- Pas de HTTPS en `file:` ; pas de serveur ni de base de données : sessions et données dans `localStorage` (clé `ontrack-demo-v2`), propres à un seul navigateur, avec repli mémoire.
+- Aucune visioconférence, aucune intégration universitaire. Les destinations d'orientation proviennent de la liste communiquée par l'ENCG (2025-2026) ; leurs critères d'admission non communiqués sont affichés « à confirmer », jamais inventés.
+- Pas de HTTPS en `file:` ; pas de serveur ni de base de données : sessions et données dans `localStorage` (clé `ontrack-demo-v3`), propres à un seul navigateur, avec repli mémoire.
 - Contrôles d'accès appliqués dans le navigateur uniquement ; à reproduire côté serveur en production.
 - Pièces jointes : métadonnées seulement (nom, type, taille).
 - QR Study Pods : aperçu visuel non scannable, prototype réservé à l'administration.

@@ -164,3 +164,94 @@ test('boîte mail simulée : limitée au compte connecté et aux adresses saisie
   assert.ok(!own.includes('admin@ontrack.demo'));
   assert.throws(() => O.changes.mailbox(contextFor(store, [], { filters: {}, gateway: {} }), { value: 'admin@ontrack.demo' }), /non consultable/);
 });
+
+test('orientation : 9 destinations réelles, places telles que communiquées, critères inconnus « à confirmer »', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  const html = render(store, ['orientation']);
+  for (const institution of ['HEC Liège — Université de Liège', 'Clermont School of Business', 'Rennes School of Business', 'Aix-Marseille Université', 'Hochschule Ludwigshafen am Rhein', 'Centria University of Applied Sciences', 'Shandong University', 'Université de Sherbrooke', 'UQAM — École des sciences de la gestion (ESG)']) assert.ok(html.includes(institution), institution);
+  assert.equal((html.match(/<article class="program">/g) || []).length, 9);
+  assert.doesNotMatch(html, /example\.org/);
+  assert.match(html, /Liste principale : 20 · Liste d&#39;attente : 20/);
+  assert.match(html, /Liste proposée : 40/);
+  assert.equal((html.match(/: 40</g) || []).length, 1, 'seule Rennes annonce 40 : listes principales et d\'attente jamais additionnées');
+  assert.match(html, /À confirmer auprès de l'ENCG/);
+  assert.match(html, /Liste communiquée par l&#39;ENCG, année 2025-2026/);
+  assert.match(html, /href="https:\/\/www\.hec\.uliege\.be" rel="noopener noreferrer" target="_blank">Site officiel de l'établissement/);
+  assert.match(html, /Aucune recommandation ne garantit une admission/);
+  const home = render(store, ['accueil']);
+  assert.match(home, /9 destinations communiquées par l'ENCG/);
+  assert.match(home, /Aucune recommandation ne garantit une admission/);
+  assert.doesNotMatch(home, /\d+\s*places/i, 'aucun total de places à l\'accueil');
+  store.login(...ACCOUNTS.student);
+  store.saveOrientationProfile({ encg: 'Casablanca', level: 'S6', track: 'Gestion', average: 14, validated: '', languages: [{ language: 'Français', level: 'C1' }], countries: [], programType: 'Indifférent' });
+  const student = render(store, ['orientation']);
+  assert.match(student, /<li class="unknown"><span class="criterion-icon" aria-hidden="true">\?<\/span> Moyenne minimale : À confirmer auprès de l'ENCG/);
+  assert.match(student, /9 destination\(s\) potentiellement adaptée\(s\)/);
+  assert.match(student, /data-form="orientation-profile"[\s\S]*<select name="level" required data-change="level-tracks">/);
+  assert.match(html, /<dt>Effectifs communiqués<\/dt><dd>Candidats : 22<\/dd>/);
+  assert.match(student, /<select name="track" required><optgroup label="Cycle du diplôme — 1re année"><option value="Gestion" selected>Gestion<\/option><option value="Commerce">Commerce<\/option><\/optgroup><\/select>/);
+});
+
+test('orientation : moyenne vidée par l\'admin → carte « À confirmer auprès de l\'ENCG » ; places analysées', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  store.login(...ACCOUNTS.admin);
+  const admin = render(store, ['admin', 'orientation']);
+  assert.match(admin, /Destinations réelles : ne publier que des informations confirmées par l'ENCG/);
+  assert.doesNotMatch(admin, /example\.org/);
+  assert.match(admin, /<textarea name="seats"[^>]*>Liste principale : 20\nListe d&#39;attente : 20<\/textarea>/);
+  assert.deepEqual(O.parseSeats('Liste principale : 20\r\nListe d\'attente : 20\n\n'), [{ label: 'Liste principale', count: 20 }, { label: 'Liste d\'attente', count: 20 }]);
+  for (const line of ['Liste principale : -3', 'Liste principale : 2,5', 'Liste principale : vingt', 'Liste principale']) assert.throws(() => store.saveProgram({ ...store.get().programs[0], language: '', deadline: '', level: '', seats: O.parseSeats(line) }), /Places/, line);
+  const program = { ...store.get().programs.find(item => item.id === 'hec-liege'), language: '', deadline: '', level: '' };
+  store.saveProgram({ ...program, minGrade: '12.5', seats: O.parseSeats('Liste principale : 18\nListe d\'attente : 20') });
+  const card = html => html.slice(html.indexOf('Mobilité HEC Liège'), html.indexOf('</article>', html.indexOf('Mobilité HEC Liège')));
+  assert.match(card(render(store, ['orientation'])), /<dt>Moyenne minimale<\/dt><dd>≥ 12,5 \/ 20<\/dd>/);
+  assert.match(card(render(store, ['orientation'])), /Liste principale : 18/);
+  store.saveProgram({ ...program, minGrade: '', seats: O.parseSeats('Liste principale : 18\nListe d\'attente : 20') });
+  assert.match(card(render(store, ['orientation'])), /<dt>Moyenne minimale<\/dt><dd><span class="unknown">À confirmer auprès de l'ENCG<\/span><\/dd>/);
+  store.saveProgram({ ...program, name: '<img src=x onerror=alert(1)>', seats: [] });
+  const escaped = render(store, ['orientation']);
+  assert.ok(!escaped.includes('<img src=x onerror'));
+  assert.match(escaped, /&lt;img src=x onerror=alert\(1\)&gt;/);
+});
+
+test('inscription : filières regroupées par cycle et filtrées selon le niveau choisi', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  const html = render(store, ['inscription']);
+  assert.match(html, /<select name="level" required data-change="level-tracks">/);
+  assert.match(html, /<select name="track" required><optgroup label="Années préparatoires"><option value="Tronc commun">Tronc commun<\/option><\/optgroup><\/select>/);
+  assert.match(html, /Filières établies d&#39;après les plannings 2025-2026 de l&#39;ENCG Casablanca ; l&#39;offre peut varier selon l&#39;ENCG\./);
+  assert.doesNotMatch(render(store, ['inscription-tuteur']), /level-tracks/, 'côté tuteur : pas de filière');
+  const track = { value: 'Tronc commun', innerHTML: '' };
+  const change = level => { O.changes['level-tracks'](contextFor(store, []), { value: level, form: { elements: { track } } }); return track.innerHTML; };
+  const placeholder = '<option value="" selected>Choisissez votre filière</option>';
+  const s5 = change('S5');
+  assert.equal(s5, `${placeholder}<optgroup label="Cycle du diplôme — 1re année"><option value="Gestion">Gestion</option><option value="Commerce">Commerce</option></optgroup>`, 'filière précédente non proposée : option vide sélectionnée, choix explicite imposé');
+  track.value = 'Commerce';
+  const s6 = change('S6');
+  assert.match(s6, /<option value="Commerce" selected>/, 'choix conservé s\'il reste proposé');
+  assert.ok(!s6.includes('Choisissez votre filière'), 'filière conservée : pas d\'option vide');
+  const s9 = change('S9');
+  assert.ok(s9.startsWith(placeholder), 'Commerce non proposé en S9 : option vide sélectionnée');
+  assert.match(s9, /<optgroup label="Cycle du diplôme — 2e année et au-delà">.*Marketing digital \(MD\).*<\/optgroup><optgroup label="Ancien régime \(5e année\)">.*Audit et contrôle de gestion \(ACG\)/);
+  assert.equal((change('Master 1').match(/<optgroup/g) || []).length, 4, 'niveau hors cycles connus : toutes les filières');
+  store.login(...ACCOUNTS.student);
+  assert.match(render(store, ['etudiant', 'profil']), /<select name="level" required data-change="level-tracks">[\s\S]*<select name="track" required><optgroup label="Cycle du diplôme — 1re année"><option value="Gestion" selected>/);
+});
+
+test('administration : le gestionnaire admin-program analyse les places et vide les champs non communiqués', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  store.login(...ACCOUNTS.admin);
+  const program = store.get().programs.find(item => item.id === 'hec-liege');
+  const values = { name: program.name, institution: program.institution, country: program.country, city: program.city, mobility: '', level: '', minGrade: '', language: '', languageLevel: 'B2', deadline: '', source: program.source, sourceNote: program.sourceNote, seats: 'Liste principale : 18\nListe d\'attente : 20', documents: '', active: 'on' };
+  const form = { dataset: { id: 'hec-liege' }, all: { tracks: ['Gestion', 'Commerce'] } };
+  const NativeFormData = globalThis.FormData;
+  globalThis.FormData = class { constructor(element) { this.element = element; } getAll(name) { return this.element.all[name] || []; } };
+  try { assert.equal(O.forms['admin-program'](contextFor(store, []), values, form), 'Programme mis à jour.'); }
+  finally { globalThis.FormData = NativeFormData; }
+  const saved = store.get().programs.find(item => item.id === 'hec-liege');
+  assert.deepEqual(saved.seats, [{ label: 'Liste principale', count: 18 }, { label: 'Liste d\'attente', count: 20 }]);
+  assert.equal(saved.minGrade, null);
+  assert.deepEqual(saved.documents, []);
+  assert.deepEqual(saved.tracks, ['Gestion', 'Commerce']);
+  assert.equal(saved.active, true);
+});

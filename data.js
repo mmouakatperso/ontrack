@@ -7,9 +7,18 @@
     ['Oujda', 'oujda'], ['Kénitra', 'kenitra'], ['El Jadida', 'el-jadida'], ['Fès', 'fes'],
     ['Casablanca', 'casablanca'], ['Dakhla', 'dakhla'], ['Béni Mellal', 'beni-mellal'], ['Meknès', 'meknes']
   ];
+  // Filières établies d'après les plannings d'examens 2025-2026 de l'ENCG Casablanca, regroupées par cycle.
+  // Un niveau peut relever de plusieurs cycles (S9 et S10 : nouveau cycle et ancien régime).
+  const trackGroups = [
+    { cycle: 'Années préparatoires', levels: ['S1', 'S2', 'S3', 'S4'], tracks: ['Tronc commun'] },
+    { cycle: 'Cycle du diplôme — 1re année', levels: ['S5', 'S6'], tracks: ['Gestion', 'Commerce'] },
+    { cycle: 'Cycle du diplôme — 2e année et au-delà', levels: ['S7', 'S8', 'S9', 'S10'], tracks: ['Finance', 'Comptabilité, audit et contrôle (CAC)', 'Management des ressources humaines (MRH)', 'Purchasing & Supply Chain Management (PSCM)', 'Business Administration (BA)', 'Marketing digital (MD)', 'Marketing et action commerciale (MAC)', 'Commerce international (CI)'] },
+    { cycle: 'Ancien régime (5e année)', levels: ['S9', 'S10'], tracks: ['Gestion financière et comptable (GFC)', 'Audit et contrôle de gestion (ACG)', 'Management logistique (ML)'] }
+  ];
   const constants = {
     levels: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10'],
-    tracks: ['Tronc commun', 'Gestion', 'Finance', 'Marketing', 'Commerce international', 'Audit et contrôle'],
+    trackGroups,
+    tracks: [...new Set(trackGroups.flatMap(group => group.tracks))],
     languages: ['Français', 'Arabe', 'Anglais', 'Espagnol'],
     modes: ['En ligne', 'Présentiel'],
     cefr: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
@@ -20,8 +29,16 @@
       { id: 'revise', label: 'Révisé' },
       { id: 'maitrise', label: 'Maîtrisé' }
     ],
-    mobilities: ['Échange semestriel', 'Double diplôme']
+    mobilities: ['Échange', 'Échange semestriel', 'Double diplôme']
   };
+  // Cycles proposant un niveau ; un niveau hors des cycles connus (créé par l'administration) les accepte tous.
+  function trackGroupsFor(level) {
+    const groups = trackGroups.filter(group => group.levels.includes(level));
+    return (groups.length ? groups : trackGroups).map(group => ({ cycle: group.cycle, levels: group.levels.slice(), tracks: group.tracks.slice() }));
+  }
+  function tracksFor(level) {
+    return [...new Set(trackGroupsFor(level).flatMap(group => group.tracks))];
+  }
 
   // Conversion d'une heure locale marocaine (Africa/Casablanca) en instant ISO,
   // avec deux passes de correction pour absorber les changements saisonniers.
@@ -61,7 +78,7 @@
     const created = new Date(date.getTime() - 30 * 86400000).toISOString();
     const user = (id, role, name, email, password, extra) => ({ id, role, name, email, salt: `seed-${id}`, hash: hash(`seed-${id}`, password), verified: true, status: 'active', created, ...extra });
     const users = [
-      user('s1', 'student', 'Salma Benali', 'salma.benali@etu.encg-casablanca.demo', 'Demo2026!', { encg: 'Casablanca', level: 'S4', track: 'Gestion' }),
+      user('s1', 'student', 'Salma Benali', 'salma.benali@etu.encg-casablanca.demo', 'Demo2026!', { encg: 'Casablanca', level: 'S6', track: 'Gestion' }),
       user('s2', 'student', 'Omar Tazi', 'omar.tazi@etu.encg-settat.demo', 'Demo2026!', { encg: 'Settat', level: 'S3', track: 'Tronc commun' }),
       user('t1', 'tutor', 'Yassine Amrani', 'yassine.amrani@etu.encg-casablanca.demo', 'Demo2026!', {}),
       user('t2', 'tutor', 'Lina El Fassi', 'lina.elfassi@etu.encg-fes.demo', 'Demo2026!', {}),
@@ -101,17 +118,23 @@
       { id: 'r-seed-1', bookingId: 'b-seed-1', studentId: 's2', tutorId: 't2', rating: 5, text: 'Explications très claires, exercices bien choisis.', created: new Date(Date.parse(pastStats) + 3 * 3600000).toISOString(), reported: false, reportReason: '', hidden: false },
       { id: 'r-seed-2', bookingId: 'b-seed-2', studentId: 's2', tutorId: 't1', rating: 4, text: 'Séance utile, le bilan est enfin plus clair.', created: new Date(Date.parse(pastCompta) + 4 * 3600000).toISOString(), reported: false, reportReason: '', hidden: false }
     ];
-    const program = (id, name, institution, country, mobility, level, tracks, minGrade, language, languageLevel, deadlineOffset, documents) => ({ id, name, institution, country, mobility, level, tracks, minGrade, languageReq: { language, level: languageLevel }, deadline: moroccoDay(date.getTime() + deadlineOffset * 86400000), documents, source: `https://example.org/programmes/${id}`, active: true });
+    // Destinations communiquées par l'ENCG (liste 2025-2026). Un champ non communiqué vaut null (« à confirmer ») :
+    // aucune moyenne, langue, date limite, pièce, filière ni type de mobilité n'est inventé.
+    const SOURCE_NOTE = 'Liste communiquée par l\'ENCG, année 2025-2026';
+    const program = (id, name, institution, country, city, mobility, seats, source) => ({ id, name, institution, country, city, mobility, seats: seats.map(([label, count]) => ({ label, count })), level: null, tracks: [], minGrade: null, languageReq: null, deadline: null, documents: [], source, sourceNote: SOURCE_NOTE, active: true });
     const programs = [
-      program('p1', 'Semestre d\'échange en gestion', 'Institut Atlantique de Gestion (fictif)', 'France', 'Échange semestriel', 'S5', ['Gestion', 'Finance', 'Marketing'], 12, 'Français', 'B2', 120, ['Relevés de notes', 'Lettre de motivation', 'Contrat d\'études']),
-      program('p2', 'Double diplôme Management international', 'Université du Nord-Ouest (fictive)', 'Canada', 'Double diplôme', 'S7', ['Gestion', 'Commerce international'], 14, 'Anglais', 'B2', 150, ['Relevés de notes', 'Certificat de langue', 'CV', 'Deux lettres de recommandation']),
-      program('p3', 'Échange Finance et marchés', 'Escuela Ibérica de Negocios (fictive)', 'Espagne', 'Échange semestriel', 'S5', ['Finance', 'Audit et contrôle'], 13, 'Espagnol', 'B1', 90, ['Relevés de notes', 'Certificat de langue', 'Lettre de motivation']),
-      program('p4', 'Double diplôme Marketing digital', 'Hochschule Rhein-Demo (fictive)', 'Allemagne', 'Double diplôme', 'S7', ['Marketing'], 13.5, 'Anglais', 'C1', 180, ['Relevés de notes', 'Certificat de langue', 'Portfolio de projets']),
-      program('p5', 'Semestre Commerce méditerranéen', 'École Méditerranée de Commerce (fictive)', 'Italie', 'Échange semestriel', 'S6', ['Commerce international', 'Marketing', 'Gestion'], 12.5, 'Anglais', 'B1', 100, ['Relevés de notes', 'Lettre de motivation']),
-      program('p6', 'Échange Audit et contrôle', 'Haute École du Léman (fictive)', 'Suisse', 'Échange semestriel', 'S7', ['Audit et contrôle', 'Finance'], 14, 'Français', 'C1', 140, ['Relevés de notes', 'CV', 'Lettre de motivation'])
+      program('hec-liege', 'Mobilité HEC Liège', 'HEC Liège — Université de Liège', 'Belgique', 'Liège', null, [['Liste principale', 20], ['Liste d\'attente', 20]], 'https://www.hec.uliege.be'),
+      program('clermont-sb', 'Mobilité Clermont School of Business', 'Clermont School of Business', 'France', 'Clermont-Ferrand', null, [['Liste principale', 20], ['Liste d\'attente', 20]], 'https://www.clermont-sb.fr'),
+      program('rennes-sb', 'Mobilité Rennes School of Business', 'Rennes School of Business', 'France', 'Rennes', null, [['Liste proposée', 40]], 'https://www.rennes-sb.com'),
+      program('amu', 'Mobilité Aix-Marseille Université', 'Aix-Marseille Université', 'France', null, null, [['Candidats retenus', 4]], 'https://www.univ-amu.fr'),
+      program('hs-ludwigshafen', 'Mobilité Hochschule Ludwigshafen am Rhein', 'Hochschule Ludwigshafen am Rhein', 'Allemagne', 'Ludwigshafen am Rhein', null, [['Candidats', 22]], 'https://www.hwg-lu.de'),
+      program('centria', 'Mobilité Centria University of Applied Sciences', 'Centria University of Applied Sciences', 'Finlande', null, null, [['Candidats', 7]], 'https://net.centria.fi/en/'),
+      program('shandong', 'Échange Shandong University', 'Shandong University', 'Chine', null, 'Échange', [['Places', 2]], 'https://en.sdu.edu.cn'),
+      program('sherbrooke', 'Échange Université de Sherbrooke', 'Université de Sherbrooke', 'Canada', null, 'Échange', [['Places', 2]], 'https://www.usherbrooke.ca'),
+      program('uqam-esg', 'Mobilité UQAM — ESG', 'UQAM — École des sciences de la gestion (ESG)', 'Canada', 'Montréal', null, [['Places', 3]], 'https://esg.uqam.ca')
     ];
     return {
-      version: 2,
+      version: 3,
       config: {
         domains,
         policy: { cancelHours: 24, rescheduleHours: 12, holdMinutes: 15, reminderHours: 24, priorityHours: 24, terminationRefund: true, sessionHours: 2, lockMinutes: 15, maxAttempts: 5 },
@@ -145,7 +168,7 @@
     { label: 'Tuteur en attente · Adam', email: 'adam.idrissi@etu.encg-tanger.demo', password: 'Demo2026!', role: 'tutor' },
     { label: 'Administration', email: 'admin@ontrack.demo', password: 'Admin2026!', role: 'admin' }
   ];
-  const api = { seed, moroccoInstant, moroccoDay, constants, demoAccounts };
+  const api = { seed, moroccoInstant, moroccoDay, constants, trackGroupsFor, tracksFor, demoAccounts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.OntrackData = api;
 }(typeof globalThis !== 'undefined' ? globalThis : this));

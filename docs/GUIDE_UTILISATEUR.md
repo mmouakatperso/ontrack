@@ -18,7 +18,7 @@ La page **Connexion** propose aussi des boutons de connexion rapide pour la sout
 ## 1. Étudiant
 
 ### Créer un compte et vérifier son adresse
-1. **Inscription** : nom, ENCG, adresse e-mail officielle, niveau, filière, mot de passe (8 caractères, une lettre et un chiffre), acceptation des conditions.
+1. **Inscription** : nom, ENCG, adresse e-mail officielle, niveau, filière (seules les filières proposées au niveau choisi sont listées, regroupées par cycle), mot de passe (8 caractères, une lettre et un chiffre), acceptation des conditions.
 2. Le domaine de l'adresse doit correspondre à l'ENCG choisie (affiché sous le champ, par exemple `@etu.encg-fes.demo`).
 3. Ouvrez la **Boîte mail simulée** (elle n'affiche que votre compte connecté et les adresses saisies dans l'onglet), relevez le code à 6 chiffres, saisissez-le sur **Vérifier mon adresse**. Le compte est activé et vous êtes connecté.
 
@@ -41,7 +41,7 @@ Aucun mot de passe universitaire ni numéro Apogée n'est demandé.
 - **Mon profil** : nom, niveau, filière, mot de passe, **Supprimer mon compte** (mot de passe et confirmation requis).
 
 ### Orientation
-Sur **Orientation**, complétez le profil (ENCG, niveau, filière, moyenne, matières validées, langues, destinations, type de programme). Les programmes dont tous les critères sont remplis sont listés comme « potentiellement adaptés », les autres comme « pistes à explorer », avec chaque critère affiché. Aucune recommandation ne garantit une admission. Le formulaire **Demander un entretien d'orientation** envoie un e-mail de confirmation.
+Sur **Orientation**, complétez le profil (ENCG, niveau, filière, moyenne, matières validées, langues, destinations, type de programme). Le portail liste les 9 destinations communiquées par l'ENCG, avec les effectifs tels que communiqués et le lien vers le site officiel. Les destinations dont tous les critères connus sont remplis sont listées comme « potentiellement adaptées », les autres comme « pistes à explorer », avec chaque critère affiché. Un critère non communiqué porte une icône « ? » et la mention « À confirmer auprès de l'ENCG » : il ne bloque pas la recommandation ; renseignez-vous auprès du service des relations internationales de votre ENCG. Aucune recommandation ne garantit une admission. Le formulaire **Demander un entretien d'orientation** envoie un e-mail de confirmation.
 
 ### Mot de passe oublié
 **Connexion → Mot de passe oublié** : saisissez l'adresse (le message est identique que le compte existe ou non), relevez le code dans la boîte mail, choisissez un nouveau mot de passe. Les sessions ouvertes sont fermées. Après 5 échecs de connexion consécutifs, la connexion est bloquée 15 minutes.
@@ -71,7 +71,7 @@ Sur **Orientation**, complétez le profil (ENCG, niveau, filière, moyenne, mati
 | Paiements | Prestataire et frais, historique des transactions, tests de rejeu et de signature invalide |
 | Rémunérations | Phase et grille, enregistrement des versements |
 | Modération | File des avis signalés : masquer ou rejeter le signalement |
-| Orientation | Programmes (création, modification, visibilité), demandes d'entretien |
+| Orientation | Destinations (création, modification, visibilité) : laisser vide un champ non communiqué (il s'affiche « à confirmer ») ; places à raison d'une ligne « libellé : nombre » par liste (jamais de total) ; lien officiel `https://` obligatoire ; demandes d'entretien |
 | Study Pods | Lieux, inscrits aux actualités, prototype QR (génération, validation unique) |
 | Messages | Messages de contact, journal |
 | Sauvegarde | Export, import, réinitialisation |
@@ -85,7 +85,7 @@ Sur **Orientation**, complétez le profil (ENCG, niveau, filière, moyenne, mati
 
 ### Restaurer
 1. **Administration → Sauvegarde → Restaurer une sauvegarde**, choisissez le fichier, cochez la confirmation, cliquez **Restaurer**.
-2. Le fichier est entièrement validé avant remplacement ; un fichier illisible ou d'une autre version est refusé sans modifier les données.
+2. Le fichier est entièrement validé avant remplacement ; un fichier illisible ou d'une autre version est refusé sans modifier les données. Les sauvegardes v1 et v2 (antérieures aux filières et destinations réelles) ne peuvent pas être importées : elles sont refusées avec le message « Version locale incompatible ».
 
 ### Réinitialiser
 **Réinitialiser la démo** (pied de page, mentions légales ou sauvegarde) recharge le jeu initial après confirmation. Les créneaux sont recalculés à partir du jour courant.
