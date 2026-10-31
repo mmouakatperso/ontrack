@@ -43,3 +43,31 @@ footer{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:28px}footer na
 @media(max-width:420px){.check-grid{grid-template-columns:1fr}.grid.four.offers{grid-template-columns:1fr}.header .brand{width:150px}}/* --- Sélecteur de langue (FR / EN) --- */
 .header nav .lang-switch{display:inline-flex;margin-left:auto;border:1px solid #b9c8d3;border-radius:5px;overflow:hidden;flex:none}.lang-switch button{border:0;border-radius:0;background:#fff;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.5px;min-width:34px;min-height:30px;padding:5px 8px}.lang-switch button+button{border-left:1px solid #b9c8d3}.lang-switch button:hover{color:var(--blue)}.lang-switch button[aria-pressed=true]{background:var(--navy);color:#fff}
 @media(max-width:700px){.lang-switch button{min-height:28px;min-width:32px}}
+.supervisor{display:flex;gap:22px;align-items:flex-start;margin-top:34px;padding:24px;border:1px solid var(--line);border-radius:var(--radius);background:var(--white)}.prose .supervisor h2{margin-top:0;font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--blue)}.supervisor h3{font-size:23px;margin:4px 0 10px}.monogram{flex:0 0 64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:var(--white);font-size:22px;font-weight:700;letter-spacing:1px}.footer-supervision a{text-decoration:underline;text-underline-offset:3px}
+@media(max-width:700px){.supervisor{flex-direction:column;gap:14px;padding:20px}.monogram{flex:0 0 52px;width:52px;height:52px;font-size:18px}}
+/* --- Assistant ONTRACK : bulle fixe et panneau (380 px max, pleine largeur sous 420 px) --- */
+footer{padding-bottom:92px}
+.assistant-toggle{position:fixed;right:20px;bottom:20px;z-index:40;display:inline-flex;align-items:center;gap:9px;min-height:48px;padding:10px 18px 10px 12px;border:0;border-radius:24px;background:var(--navy);color:var(--white);font-weight:700;font-size:14px;box-shadow:0 6px 20px #122b4240}.assistant-toggle:hover{background:var(--blue)}
+.assistant-icon{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--white);color:var(--navy);font-size:14px}
+.assistant-panel{position:fixed;right:20px;bottom:80px;z-index:41;width:min(380px,calc(100vw - 40px));max-height:min(620px,calc(100vh - 110px));display:flex;flex-direction:column;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 12px 40px #122b4238;overflow:hidden}.assistant-panel[hidden]{display:none}
+.assistant-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 10px 10px 16px;background:var(--navy);color:var(--white)}.assistant-head h2{margin:0;font-size:16px;color:var(--white)}
+.assistant-close{display:inline-grid;place-items:center;min-width:36px;min-height:36px;border:0;border-radius:5px;background:transparent;color:var(--white);font-size:24px;line-height:1}.assistant-close:hover{background:#ffffff26}
+.assistant-notice{margin:0;padding:7px 16px;font-size:11px;line-height:1.4;background:var(--violet-soft);color:var(--violet)}
+.assistant-log{flex:1 1 auto;min-height:140px;overflow-x:hidden;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:14px 16px}
+.assistant-msg{max-width:92%;padding:8px 12px;border-radius:10px;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.assistant-msg p{margin:0;white-space:pre-line}.assistant-msg.user{align-self:flex-end;background:var(--blue);color:var(--white)}.assistant-msg.bot{align-self:flex-start;background:var(--paper);border:1px solid var(--line)}
+.assistant-msg .assistant-links{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;white-space:normal}.assistant-links a{color:var(--blue);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.assistant-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-top:1px solid var(--line)}.assistant-suggestions:empty{display:none}
+.assistant-chip{max-width:100%;border:1px solid #b9c8d3;border-radius:16px;background:var(--white);color:var(--navy);padding:5px 11px;font-size:12px;text-align:left;overflow-wrap:anywhere}.assistant-chip:hover{border-color:var(--blue);color:var(--blue)}
+.assistant-form{display:flex;gap:8px;align-items:center;padding:10px 16px 4px;border-top:1px solid var(--line)}.assistant-form input{flex:1 1 auto;padding:8px 10px}.assistant-form .button{flex:none}
+.assistant-error{margin:0;padding:2px 16px 10px;font-size:12px;color:var(--red);min-height:6px}
+@media(max-width:420px){.assistant-toggle{right:12px;bottom:12px}.assistant-panel{left:0;right:0;bottom:0;width:100%;max-height:calc(100vh - 56px);border-radius:var(--radius) var(--radius) 0 0;border-left:0;border-right:0}}
+@media print{.assistant{display:none}}
+.chat{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:24px;align-items:start}.chat-side{min-width:0}.chat-side h2{font-size:18px}
+.chat-list{list-style:none;padding:0;margin:0 0 20px;display:grid;gap:4px}.chat-list li{overflow-wrap:anywhere}.chat-list a{display:inline-block;padding:6px 8px;border-radius:5px;font-weight:600}.chat-list a.active{background:var(--violet-soft);color:var(--navy)}
+.chat-main{min-width:0;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:20px}.chat-main h2{font-size:22px}
+.chat-log{list-style:none;margin:0 0 12px;padding:4px;max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.chat-msg{max-width:85%;align-self:flex-start;background:var(--gray);border-radius:10px;padding:10px 12px;overflow-wrap:anywhere}.chat-msg.mine{align-self:flex-end;background:var(--mint)}.chat-msg.masked{background:var(--paper);border:1px dashed var(--line)}
+.chat-meta{font-size:12px;margin-bottom:4px}.chat-meta time{color:var(--muted);margin-left:6px}.chat-text{margin-bottom:6px;white-space:pre-wrap}.chat-msg .button{margin-top:2px}
+.chat-typing{font-size:13px;color:var(--muted);font-style:italic}.chat-form textarea{min-height:80px}
+@media(max-width:700px){.chat{grid-template-columns:1fr}.chat-main{padding:14px}.chat-msg{max-width:100%}}
+.chat-intro{margin-bottom:24px}.chat-intro a{color:var(--blue);text-decoration:underline;text-underline-offset:2px}

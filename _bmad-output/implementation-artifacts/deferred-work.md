@@ -15,3 +15,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-donnees-reelles-encg-filieres-destinations.md`
   summary: Aucun test ne vérifie l'ordre de tri des recommandations (éligibles d'abord, puis part de critères connus remplis).
   evidence: `store.test.cjs` trie les identifiants avant de comparer (l. 528) ; revenir à `b.met - a.met` ne ferait échouer aucun test. Seul l'ordre d'affichage est en jeu.
+- source_spec: `_bmad-output/implementation-artifacts/spec-assistant-ontrack.md`
+  summary: Le contrôleur de l'assistant dans `app.js` n'est exécuté par aucun test : effacement de l'historique au changement de compte, plafond de 40 échanges, échappement du rendu, Échap.
+  evidence: Aucun test ne charge `app.js` (seulement lu comme texte). Il faudrait extraire le rendu et la gestion du propriétaire dans une aide sans DOM, ou ajouter un banc DOM.
+- source_spec: `_bmad-output/implementation-artifacts/spec-discussions-etudiants.md`
+  summary: La synchronisation entre onglets (écouteur `storage`, `rerenderChat`, minuterie, brouillons dans `memory.chatDraft`) n'est exécutée par aucun test automatisé.
+  evidence: Aucun test ne charge `app.js`. Seul le contrôle manuel dans Chrome (hors dépôt) l'a vérifiée. Il faudrait un banc DOM (`node:vm` avec `window`/`document` simulés), à mutualiser avec l'entrée sur l'assistant.

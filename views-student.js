@@ -165,7 +165,30 @@
   });
 
   // 4, 10, 11. Espace étudiant -------------------------------------------------------
-  const TABS = [['apercu', 'Tableau de bord'], ['seances', 'Mes séances'], ['historique', 'Historique'], ['forfaits', 'Mes forfaits'], ['progression', 'Progression'], ['comptes-rendus', 'Comptes rendus'], ['notifications', 'Notifications'], ['profil', 'Mon profil']];
+  const TABS = [['apercu', 'Tableau de bord'], ['seances', 'Mes séances'], ['historique', 'Historique'], ['forfaits', 'Mes forfaits'], ['progression', 'Progression'], ['comptes-rendus', 'Comptes rendus'], ['discussions', 'Discussions'], ['notifications', 'Notifications'], ['profil', 'Mon profil']];
+  // Motifs de signalement (valeur enregistrée en français, libellé traduit à l'affichage).
+  const REPORT_REASONS = ['Coordonnées ou données personnelles', 'Propos inappropriés ou harcèlement', 'Publicité ou spam', 'Autre motif'];
+
+  // Discussions entre étudiants (simulées) : salons, discussions privées, fil de messages et signalement.
+  function discussions(ctx) {
+    const view = ctx.store.chatView(ctx.params[1]);
+    const current = view.current;
+    const drafts = ctx.ui.chatDraft || {};
+    const link = (id, label, extra) => { const active = Boolean(current) && current.id === id; return `<li><a href="#etudiant/discussions/${escape(id)}"${active ? ' class="active" aria-current="true"' : ''}>${label}</a>${extra}</li>`; };
+    const rooms = view.rooms.map(room => link(room.id, escape(room.name), `${room.mine ? ` ${badge(t('Votre filière'), 'green')}` : ''} <small>${t('{count} message(s)', { count: room.count })}</small>`)).join('');
+    const threads = view.threads.map(thread => link(thread.id, escape(thread.name), thread.persona ? ` ${badge(t('Persona'), 'violet')}` : '')).join('') || `<li class="muted">${t('Aucune discussion privée.')}</li>`;
+    const contacts = view.contacts.map(contact => ({ value: contact.id, label: `${contact.name} · ENCG ${contact.encg} · ${contact.track}` }));
+    const reportForm = messageId => `<form data-form="chat-report" data-id="${escape(messageId)}" class="inline-form chat-report">${select(t('Motif du signalement'), 'reason', REPORT_REASONS.map(reason => ({ value: reason, label: t(reason) })), drafts.report || REPORT_REASONS[0], null, 'id="chat-report-reason" data-draft="report"')}<button class="button small" type="submit">${t('Envoyer le signalement')}</button>${button(t('Annuler'), 'chat-report-cancel', messageId)}</form>`;
+    const item = message => `<li class="chat-msg${message.mine ? ' mine' : ''}${message.hidden ? ' masked' : ''}"><p class="chat-meta"><strong>${message.deleted ? t('Compte supprimé') : escape(message.fromName)}</strong>${message.mine ? ` <span class="muted">${t('(vous)')}</span>` : ''} <time datetime="${escape(message.created)}">${escape(date(message.created))}</time></p><p class="chat-text">${message.hidden ? `<em>${t('Message masqué par la modération')}</em>` : escape(message.text)}</p>${message.reportedByMe ? `<p><small>${t('Vous avez signalé ce message.')}</small></p>` : ''}${message.canReport ? (ctx.ui.chatReport === message.id ? reportForm(message.id) : button(t('Signaler'), 'chat-report-open', message.id, `aria-label="${escape(t('Signaler le message de {name}', { name: message.fromName }))}"`)) : ''}</li>`;
+    let main;
+    if (!current) main = empty(t('Aucun salon'), t('Aucun salon de discussion n\'est configuré.'));
+    else {
+      const title = current.kind === 'room' ? t('Salon {name}', { name: escape(current.name) }) : t('Discussion privée avec {name}', { name: escape(current.name) });
+      const scope = current.kind === 'room' ? t('Salon ouvert à tous les étudiants connectés.') : current.persona ? t('Persona fictive : ses réponses sont préprogrammées et arrivent automatiquement.') : t('Visible uniquement par vous deux. L\'administration ne voit un message que s\'il est signalé.');
+      main = `<h2 id="chat-title">${title}</h2><p class="muted">${scope}</p><ol class="chat-log" id="chat-log" role="log" aria-live="polite" aria-labelledby="chat-title" tabindex="0">${view.messages.map(item).join('') || `<li class="muted">${t('Aucun message pour le moment : lancez la discussion !')}</li>`}</ol>${view.waiting.length ? `<p class="chat-typing">${t('{name} est en train d\'écrire…', { name: escape(view.waiting[0]) })}</p>` : ''}<form data-form="chat-post" data-kind="${current.kind}" data-id="${escape(current.id)}" class="form-stack chat-form">${textarea(t('Votre message'), 'text', drafts[current.id] || '', `id="chat-input" rows="3" maxlength="500" required data-draft="${escape(current.id)}" aria-describedby="chat-help"`)}<p class="hint" id="chat-help">${t('1 à 500 caractères. Un message contenant une adresse e-mail ou un numéro de téléphone est publié avec un avertissement.')}</p><button class="button" type="submit">${t('Envoyer')}</button></form>`;
+    }
+    return `<p class="notice warning chat-rules"><strong>${t('N\'échangez ni coordonnées, ni documents, ni données personnelles.')}</strong> ${t('Signalez tout message abusif : l\'administration ne voit que les messages signalés.')}</p><p class="hint chat-intro">${t('Discussions simulées, sans serveur : les messages restent dans ce navigateur. Deux onglets du même navigateur se parlent en direct ; aucun échange entre appareils. Les personas (fictives) répondent automatiquement.')} <a href="#cgu">${t('Règles des discussions')}</a></p><div class="chat"><aside class="chat-side" aria-label="${escape(t('Salons et discussions privées'))}"><h2>${t('Salons')}</h2><ul class="chat-list">${rooms}</ul><h2>${t('Discussions privées')}</h2><ul class="chat-list">${threads}</ul><form data-form="chat-start" class="form-stack chat-start">${select(t('Écrire à…'), 'to', contacts, drafts.to || '', t('Choisissez un destinataire'), 'id="chat-to" data-draft="to"')}<button class="button small secondary" type="submit">${t('Ouvrir la discussion')}</button></form></aside><section class="chat-main" aria-labelledby="chat-title">${main}</section></div>`;
+  }
   function reportView(state, booking) {
     const report = booking.report;
     return `<div class="report-view"><h4>${t('Compte rendu · {subject}', { subject: escape(u.subjectName(state, report.subjectId)) })}</h4><dl class="facts"><dt>${t('Matière et chapitres')}</dt><dd>${report.chapters.map(item => `${escape(u.chapterName(state, item.id))} (${escape(u.chapterStatus(item.status))})`).join(' · ')}</dd><dt>${t('Notions abordées')}</dt><dd>${escape(report.notions)}</dd><dt>${t('Exercices travaillés')}</dt><dd>${escape(report.exercises)}</dd><dt>${t('Difficultés identifiées')}</dt><dd>${escape(report.difficulties)}</dd><dt>${t('Points à réviser')}</dt><dd>${escape(report.toReview)}</dd><dt>${t('Recommandations')}</dt><dd>${escape(report.recommendations)}</dd></dl></div>`;
@@ -225,6 +248,8 @@
         content = `<h2>${t('Ma progression par matière')}</h2><p class="notice">${t('<strong>Méthode de calcul :</strong> pour chaque matière, % = nombre de chapitres dont le statut est différent de « À étudier » ÷ nombre total de chapitres de la matière × 100, arrondi à l\'entier. Le statut d\'un chapitre est celui indiqué dans le dernier compte rendu qui le mentionne. Cet indicateur de suivi pédagogique ne constitue pas une garantie de maîtrise réelle.')}</p>${progress.map(item => `<section class="block"><div class="booking-top"><h3>${escape(item.name)}</h3><strong>${item.percent} %</strong></div>${u.progressBar(item.percent, t('Progression en {subject}', { subject: item.name }))}<p><small>${t('{worked} / {total} chapitres travaillés', { worked: item.worked, total: item.total })}${item.updated ? ` · ${t('mis à jour le {date}', { date: escape(date(item.updated)) })}` : ''}</small></p><ul class="chapter-list">${item.chapters.map(chapter => `<li><span>${escape(chapter.name)}</span>${badge(u.chapterStatus(chapter.status), { 'a-etudier': 'gray', 'en-cours': 'violet', revise: '', maitrise: 'green' }[chapter.status])}</li>`).join('')}</ul></section>`).join('') || empty(t('Pas encore de progression'), t('Votre progression apparaît après le premier compte rendu de séance.'))}<p><small>${t('Statuts possibles : {list}.', { list: data.constants.chapterStatuses.map(item => escape(u.chapterStatus(item.id))).join(', ') })}</small></p>`;
       } else if (tab === 'comptes-rendus') {
         content = `<h2>${t('Mes comptes rendus')}</h2>${reports.map(booking => `<article class="booking"><div class="booking-top"><h3>${escape(booking.offerName)} · ${escape(u.tutorName(state, booking.tutorId))}</h3><small>${escape(date(booking.start))}</small></div>${reportView(state, booking)}</article>`).join('') || empty(t('Aucun compte rendu'), t('Votre tuteur publie un récapitulatif après chaque séance.'))}`;
+      } else if (tab === 'discussions') {
+        content = discussions(ctx);
       } else if (tab === 'notifications') {
         const list = state.notifications.filter(item => item.userId === user.id);
         content = `<div class="section-heading"><h2>${t('Notifications')}</h2>${list.some(item => !item.read) ? button(t('Tout marquer comme lu'), 'notifications-read', '') : ''}</div>${list.map(item => `<div class="notification${item.read ? '' : ' unread'}">${escape(item.text)}<time>${escape(date(item.created))}</time></div>`).join('') || empty(t('Tout est calme.'), t('Les prochaines actions apparaîtront ici.'))}<p><a href="#boite-mail">${t('Consulter les e-mails reçus (boîte simulée)')}</a></p>`;
@@ -234,7 +259,37 @@
         content = `<div class="grid four metrics"><div class="metric"><strong>${upcoming.length}</strong><span>${t('Prochaines séances')}</span></div><div class="metric"><strong>${pending.length}</strong><span>${t('En attente de paiement')}</span></div><div class="metric"><strong>${active.reduce((total, pack) => total + pack.remaining, 0)}</strong><span>${t('Séances de forfait restantes')}</span></div><div class="metric"><strong>${progress.length}</strong><span>${t('Matières étudiées')}</span></div></div><div class="actions"><a class="button" href="#reserver">${t('Réserver une séance')} <span aria-hidden="true">↗</span></a></div><div class="grid two dash"><section><h2>${t('Prochaines séances')}</h2>${upcoming.slice(0, 3).map(booking => `<p><strong>${escape(date(booking.start))}</strong> · ${t('{offer} avec {tutor}', { offer: escape(booking.offerName), tutor: escape(u.tutorName(state, booking.tutorId)) })}</p>`).join('') || `<p class="muted">${t('Aucune séance prévue.')}</p>`}<h2>${t('Réservations en attente')}</h2>${pending.map(booking => `<p>${escape(booking.offerName)} · ${escape(date(booking.start))} — <a href="#paiement/${escape(booking.id)}">${t('payer')}</a></p>`).join('') || `<p class="muted">${t('Aucune.')}</p>`}<h2>${t('Forfaits actifs')}</h2>${active.map(pack => `<p>${t('{name} : <strong>{remaining} / {total}</strong> séance(s) à planifier · jusqu\'au {date}', { name: escape(pack.name), remaining: pack.remaining, total: pack.total, date: escape(date(pack.expires)) })}</p>`).join('') || `<p class="muted">${t('Aucun forfait actif.')}</p>`}<h2>${t('Historique récent')}</h2>${past.slice(0, 3).map(booking => `<p>${escape(date(booking.start))} · ${escape(booking.offerName)} ${u.statusBadge(booking.status)}</p>`).join('') || `<p class="muted">${t('Aucune séance passée.')}</p>`}<a href="#etudiant/historique">${t('Tout l\'historique')}</a></section><section><h2>${t('Matières étudiées et progression')}</h2>${progressBlock(progress)}<h2>${t('Derniers comptes rendus')}</h2>${reports.slice(0, 2).map(booking => `<div class="review"><strong>${escape(u.subjectName(state, booking.report.subjectId))}</strong> · ${escape(date(booking.start))}<p>${escape(booking.report.recommendations)}</p></div>`).join('') || `<p class="muted">${t('Aucun compte rendu.')}</p>`}<a href="#etudiant/comptes-rendus">${t('Tous les comptes rendus')}</a></section></div>`;
       }
       return head(t('Espace étudiant'), t('Bonjour, {name}.', { name: user.name.split(' ')[0] }), `ENCG ${user.encg} · ${user.level} · ${user.track}`) + `<div class="wrap">${u.tabs('etudiant', TABS.map(([key, label]) => [key, t(label)]), tab, t('Espace étudiant'))}<div class="section">${content}</div></div>`;
+    },
+    // Discussions : le fil s'ouvre sur le dernier message, sauf si l'utilisateur lisait plus haut avant le réaffichage
+    // (ui.chatScroll, relevé par app.js) ; après son propre envoi (ui.chatScrollEnd), retour en bas.
+    after: (ctx, main) => {
+      const log = main.querySelector('#chat-log');
+      const before = ctx.ui.chatScroll;
+      if (log) log.scrollTop = before && !before.atBottom && !ctx.ui.chatScrollEnd ? before.top : log.scrollHeight;
+      ctx.ui.chatScroll = null; ctx.ui.chatScrollEnd = false;
     }
+  });
+  O.form('chat-post', (ctx, values, form) => {
+    const target = form.dataset.kind === 'thread' ? { threadId: form.dataset.id } : { roomId: form.dataset.id };
+    const result = ctx.store.chatPost({ ...target, text: values.text });
+    if (ctx.ui.chatDraft) delete ctx.ui.chatDraft[form.dataset.id];
+    ctx.ui.chatScrollEnd = true;
+    // Coordonnées détectées : avertissement visible (style d'erreur), le focus reste sur le message d'alerte.
+    return result.warning ? { message: result.warning, error: true } : { message: t('Message envoyé.'), focus: 'chat-input' };
+  });
+  O.form('chat-start', (ctx, values) => {
+    if (!values.to) throw new Error(t('Choisissez un destinataire.'));
+    const thread = ctx.store.chatStartThread(values.to);
+    if (ctx.ui.chatDraft) delete ctx.ui.chatDraft.to;
+    return { go: `etudiant/discussions/${thread.id}`, message: t('Discussion privée ouverte.') };
+  });
+  O.action('chat-report-open', (ctx, dataset) => { ctx.ui.chatReport = dataset.id; return { message: t('Choisissez le motif du signalement.'), focus: 'chat-report-reason' }; });
+  O.action('chat-report-cancel', ctx => { ctx.ui.chatReport = null; if (ctx.ui.chatDraft) delete ctx.ui.chatDraft.report; return t('Signalement annulé.'); });
+  O.form('chat-report', (ctx, values, form) => {
+    ctx.store.chatReport(form.dataset.id, values.reason);
+    ctx.ui.chatReport = null;
+    if (ctx.ui.chatDraft) delete ctx.ui.chatDraft.report;
+    return t('Message signalé à l\'administration.');
   });
   function deleteForm() {
     return `<form data-form="delete-account" class="form-stack danger-zone"><h2>${t('Supprimer mon compte')}</h2><p>${t('Vos données personnelles (profil, avis, orientation, notifications) sont supprimées. Les séances futures sont annulées et remboursées. Les réservations et paiements passés sont conservés sous forme anonymisée pour les obligations comptables.')}</p>${field(t('Mot de passe'), 'password', '', 'password', 'autocomplete="current-password"')}<label class="check"><input type="checkbox" name="confirm" required> <span>${t('Je confirme la suppression définitive de mon compte.')}</span></label><button class="button danger" type="submit">${t('Supprimer définitivement')}</button></form>`;

@@ -133,6 +133,44 @@
       program('sherbrooke', 'Échange Université de Sherbrooke', 'Université de Sherbrooke', 'Canada', null, 'Échange', [['Places', 2]], 'https://www.usherbrooke.ca'),
       program('uqam-esg', 'Mobilité UQAM — ESG', 'UQAM — École des sciences de la gestion (ESG)', 'Canada', 'Montréal', null, [['Places', 3]], 'https://esg.uqam.ca')
     ];
+    // Discussions entre étudiants : salons par filière et par matière, personas fictives qui répondent
+    // automatiquement (réponses planifiées dans `pending`), deux messages d'amorce par salon.
+    const ago = minutes => new Date(date.getTime() - minutes * 60000).toISOString();
+    const personas = [
+      { id: 'p-ines', name: 'Inès (fictive)', encg: 'Casablanca', track: 'Commerce' },
+      { id: 'p-hiba', name: 'Hiba (fictive)', encg: 'Settat', track: 'Tronc commun' },
+      { id: 'p-yasmine', name: 'Yasmine (fictive)', encg: 'Fès', track: 'Gestion' },
+      { id: 'p-nour', name: 'Nour (fictive)', encg: 'Tanger', track: 'Finance' }
+    ];
+    const rooms = [
+      { id: 'r-tc', name: 'Tronc commun', kind: 'track', track: 'Tronc commun' },
+      { id: 'r-gestion', name: 'Gestion', kind: 'track', track: 'Gestion' },
+      { id: 'r-commerce', name: 'Commerce', kind: 'track', track: 'Commerce' },
+      { id: 'r-finance', name: 'Finance', kind: 'track', track: 'Finance' },
+      { id: 'r-compta-gen', name: 'Comptabilité générale', kind: 'subject', subjectId: 'compta-gen' },
+      { id: 'r-stats', name: 'Statistiques', kind: 'subject', subjectId: 'stats' }
+    ];
+    const opening = [
+      ['r-tc', 'p-hiba', 'Bonjour à tous ! Quelqu\'un a une méthode pour réviser la microéconomie avant les partiels ?', 300],
+      ['r-tc', 'p-ines', 'Je fais une fiche par chapitre, puis les exercices des anciens examens. Ça marche bien pour moi.', 280],
+      ['r-gestion', 'p-yasmine', 'Salut ! Qui prépare le contrôle de comptabilité analytique de la semaine prochaine ?', 240],
+      ['r-gestion', 'p-nour', 'Moi ! Le seuil de rentabilité me pose encore problème, on pourrait comparer nos exercices.', 220],
+      ['r-commerce', 'p-ines', 'Bienvenue dans le salon Commerce : partagez vos astuces pour le cours de marketing.', 200],
+      ['r-commerce', 'p-yasmine', 'Pour le mix marketing, je relie chaque « P » à un exemple de marque marocaine.', 180],
+      ['r-finance', 'p-nour', 'Bonjour ! Des conseils pour s\'organiser entre les cours de finance et le stage ?', 160],
+      ['r-finance', 'p-hiba', 'Je bloque deux créneaux fixes par semaine pour réviser, sinon tout glisse.', 140],
+      ['r-compta-gen', 'p-yasmine', 'Petit rappel : un bilan est toujours équilibré, actif = passif. Vérifiez vos totaux !', 120],
+      ['r-compta-gen', 'p-hiba', 'Merci ! Les amortissements dégressifs, quelqu\'un a compris le coefficient ?', 100],
+      ['r-stats', 'p-nour', 'Qui veut s\'entraîner sur la loi normale ? Je bloque sur la lecture de la table.', 80],
+      ['r-stats', 'p-ines', 'Pense à centrer et réduire avant de lire la table : (X − μ) / σ.', 60]
+    ];
+    const chat = {
+      rooms,
+      personas,
+      messages: opening.map(([roomId, personaId, text, minutes], index) => ({ id: `cm-seed-${index + 1}`, roomId, threadId: null, fromId: personaId, fromName: personas.find(item => item.id === personaId).name, text, created: ago(minutes), reported: false, reportReason: '', hidden: false })),
+      threads: [],
+      pending: []
+    };
     return {
       version: 3,
       config: {
@@ -157,9 +195,28 @@
         subscribers: [],
         prototype: []
       },
-      messages: [], notifications: []
+      messages: [], notifications: [],
+      chat
     };
   }
+  // Réponses simulées des personas, choisies par mots-clés (début de mot, texte sans accents). {name} : prénom de
+  // l'étudiant en discussion privée ; en salon, « , {name} » ou « {name} » est retiré (aucun prénom dans un message public).
+  const chatReplies = [
+    { keywords: ['compta', 'bilan', 'amortissement', 'provision', 'inventaire', 'actif', 'passif'], text: 'Pour la compta, {name}, je refais toujours un petit bilan à la main avant l\'examen. On pourrait comparer nos corrigés dans ce salon ?' },
+    { keywords: ['stats', 'statisti', 'proba', 'loi normale', 'regression', 'echantillon'], text: 'En stats, ce qui m\'a aidée, c\'est de refaire les exercices de TD sans regarder la correction. Tu bloques sur quel chapitre, {name} ?' },
+    { keywords: ['exam', 'partiel', 'revis', 'controle', 'rattrapage'], text: 'Je révise aussi ! Je fais des sessions de 45 minutes avec une pause. Un tuteur ONTRACK peut aussi t\'aider avec Exam Rescue.' },
+    { keywords: ['marketing', 'mix', 'segmentation', 'commerce'], text: 'Pour le marketing, partir d\'un cas concret de marque aide beaucoup. Tu as un exemple en tête, {name} ?' },
+    { keywords: ['finance', 'micro', 'macro', 'econom', 'math'], text: 'Bonne question {name}. Je te conseille de reprendre les définitions du cours avant d\'attaquer les exercices.' },
+    { keywords: ['tuteur', 'seance', 'reserver', 'reservation'], text: 'J\'ai déjà réservé une séance sur ONTRACK : on choisit la matière, le chapitre, puis le créneau. Très pratique !' },
+    { keywords: ['orientation', 'mobilite', 'echange', 'etranger', 'erasmus'], text: 'Le portail d\'orientation liste les destinations communiquées par l\'ENCG. Pense à vérifier les critères auprès des relations internationales.' },
+    { keywords: ['bonjour', 'salut', 'hello', 'coucou', 'salam'], text: 'Salut {name} ! Bienvenue, n\'hésite pas à poser tes questions ici.' },
+    { keywords: ['merci', 'thanks', 'top', 'super'], text: 'Avec plaisir {name} ! Bon courage pour la suite.' }
+  ];
+  const chatFallback = [
+    'Intéressant ! Tu peux préciser un peu, {name} ?',
+    'Je suis d\'accord. Quelqu\'un d\'autre a un avis ?',
+    'Bonne idée {name}, je n\'y avais pas pensé.'
+  ];
   const demoAccounts = [
     { label: 'Étudiante · Salma', email: 'salma.benali@etu.encg-casablanca.demo', password: 'Demo2026!', role: 'student' },
     { label: 'Étudiant abonné Stay · Omar', email: 'omar.tazi@etu.encg-settat.demo', password: 'Demo2026!', role: 'student' },
@@ -168,7 +225,7 @@
     { label: 'Tuteur en attente · Adam', email: 'adam.idrissi@etu.encg-tanger.demo', password: 'Demo2026!', role: 'tutor' },
     { label: 'Administration', email: 'admin@ontrack.demo', password: 'Admin2026!', role: 'admin' }
   ];
-  const api = { seed, moroccoInstant, moroccoDay, constants, trackGroupsFor, tracksFor, demoAccounts };
+  const api = { seed, moroccoInstant, moroccoDay, constants, trackGroupsFor, tracksFor, demoAccounts, chatReplies, chatFallback };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.OntrackData = api;
 }(typeof globalThis !== 'undefined' ? globalThis : this));
