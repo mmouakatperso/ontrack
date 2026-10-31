@@ -31,6 +31,7 @@
     'Mot de passe oublié': 'Forgot password',
     'Contact et assistance': 'Contact and support',
     'Informations légales': 'Legal information',
+    'Réseaux sociaux': 'Social media',
     'Informations': 'Information',
     'Conditions d\'utilisation': 'Terms of use',
     'Politique de confidentialité': 'Privacy policy',
@@ -1384,6 +1385,9 @@
   add({
     'Projet académique encadré par Dr Fatine Ouahtita — ENCG Casablanca': 'Academic project supervised by Dr Fatine Ouahtita — ENCG Casablanca',
     'Encadrement académique': 'Academic supervision',
+    'L\'équipe du projet': 'The project team',
+    'Les étudiantes et étudiants qui ont conçu et réalisé ONTRACK.': 'The students who designed and built ONTRACK.',
+    'Responsable de l\'équipe': 'Team leader',
     'Professeure à l\'École Nationale de Commerce et de Gestion de Casablanca (Université Hassan II de Casablanca), rattachée au Laboratoire de recherche prospective en économie et gestion.': 'Professor at the École Nationale de Commerce et de Gestion de Casablanca (Hassan II University of Casablanca), member of the Laboratoire de recherche prospective en économie et gestion.',
     '<strong>Domaines :</strong> marketing digital, marketing d\'influence, communication de marque, digitalisation et durabilité.': '<strong>Fields:</strong> digital marketing, influencer marketing, brand communication, digitalisation and sustainability.',
     '<strong>Publications récentes :</strong>': '<strong>Recent publications:</strong>',

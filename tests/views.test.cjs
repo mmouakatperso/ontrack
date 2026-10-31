@@ -378,7 +378,11 @@ test('encadrante tutrice : trois cartes à l\'accueil, profil sans photo, matiè
   assert.match(profile, /Anglais commercial/);
   assert.match(profile, /Marketing/);
   for (const chapter of ['Correspondance professionnelle', 'Réunions et présentations', 'Négociation commerciale', 'Vocabulaire du commerce international', 'Étude de marché']) assert.ok(profile.includes(chapter), chapter);
-  assert.match(profile, /Aucun avis publié pour le moment/);
+  assert.match(banner, /★ 5\.0 \/ 5 <small>\(1 avis\)<\/small>/);
+  assert.match(profile, /Avis des étudiants \(1\)[\s\S]*★★★★★ 5 \/ 5/);
+  const languages = profile.slice(profile.indexOf('Langues et modes'), profile.indexOf('Types de séances'));
+  assert.match(languages, />Anglais</);
+  assert.doesNotMatch(languages, /Français/, 'le français n\'est plus proposé');
 
   const subject = render(store, ['matieres', 'anglais-com']);
   assert.match(subject, /1 tuteur\(s\) disponible\(s\)/);
@@ -427,4 +431,32 @@ test('encadrante tutrice : trois cartes à l\'accueil, profil sans photo, matiè
   const suspended = render(store, ['accueil']);
   assert.match(suspended, /Profils fictifs de démonstration\. Photos illustratives publiées avec consentement simulé\./);
   assert.doesNotMatch(suspended, /Dr Fatine Ouahtita/);
+});
+
+test('équipe du projet : sept étudiants sous le pavé de l\'encadrante, icône pour la responsable ; liens sociaux du pied de page', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  const html = render(store, ['presentation']);
+  const supervisorEnd = html.indexOf('</section>', html.indexOf('<section class="supervisor"'));
+  const start = html.indexOf('<section class="team"');
+  assert.ok(start > supervisorEnd && start < html.indexOf('Trois profils, trois espaces'), 'juste après le pavé de l\'encadrante');
+  const section = html.slice(start, html.indexOf('</section>', start));
+  assert.match(section, /aria-labelledby="equipe"/);
+  assert.match(section, /<h2 id="equipe">L'équipe du projet<\/h2>/);
+  const names = [...section.matchAll(/<span class="team-name">([^<]+)<\/span>/g)].map(match => match[1]);
+  assert.deepEqual(names, ['Yasmine Merzak', 'Aya Mouakat', 'Salma Lahmar', 'Mohamed Taha Mabrouk', 'Leïla Lagzouli', 'Mohamed Ali Naami', 'Anas Lyanboui']);
+  assert.equal((section.match(/class="team-leader"/g) || []).length, 1, 'une seule icône');
+  assert.match(section, /Yasmine Merzak<\/span><svg class="team-leader"[^>]*role="img" aria-label="Responsable de l&#39;équipe"/);
+  assert.doesNotMatch(section, /Team Leader/);
+  O.i18n.set('en');
+  let english;
+  try { english = render(store, ['presentation']); } finally { O.i18n.set('fr'); }
+  assert.match(english, /<h2 id="equipe">The project team<\/h2>/);
+  assert.match(english, /aria-label="Team leader"/);
+
+  const shell = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const social = shell.slice(shell.indexOf('<ul class="social"'), shell.indexOf('</ul>', shell.indexOf('<ul class="social"')));
+  assert.match(social, /aria-label="Réseaux sociaux"/);
+  assert.match(social, /<a href="https:\/\/www\.instagram\.com\/stay_ontrack_\/" target="_blank" rel="noopener noreferrer">[\s\S]*?Instagram<\/a>/);
+  assert.match(social, /<a href="https:\/\/www\.tiktok\.com\/@stay___ontrack" target="_blank" rel="noopener noreferrer">[\s\S]*?TikTok<\/a>/);
+  assert.doesNotMatch(social, /xtok|_r=|_t=/, 'sans paramètres de suivi');
 });

@@ -10,6 +10,7 @@
   // Encadrante tutrice ajoutée au seed après la v3 (migration additive, voir migrate()).
   const SUPERVISOR_ID = 't4';
   const SUPERVISOR_SUBJECT = 'anglais-com';
+  const SUPERVISOR_REVIEW = { review: 'r-seed-3', booking: 'b-seed-4', transaction: 'tx-seed-3' };
   const MINUTE = 60000;
   const HOUR = 60 * MINUTE;
   const copy = value => JSON.parse(JSON.stringify(value));
@@ -86,10 +87,12 @@
       if (!candidate || typeof candidate !== 'object' || candidate.version !== VERSION) return candidate;
       const needsChat = candidate.chat === undefined;
       const needsSupervisor = lacksSupervisor(candidate);
-      if (!needsChat && !needsSupervisor) return candidate;
+      const needsReview = lacksSupervisorReview(candidate);
+      if (!needsChat && !needsSupervisor && !needsReview) return candidate;
       const seeded = data.seed(now());
       if (needsChat) candidate.chat = seeded.chat;
       if (needsSupervisor) addSupervisor(candidate, seeded);
+      if (needsReview) addSupervisorReview(candidate, seeded);
       return candidate;
     }
     // Ajout une seule fois : un état qui contient déjà t4 n'est pas touché (même si sa matière a été supprimée).
@@ -110,6 +113,23 @@
       const chapterIds = new Set([...taken, ...subject.chapters.map(chapter => chapter.id)]);
       candidate.users.push(user);
       candidate.tutors.push({ ...tutor, subjects: tutor.subjects.filter(id => subjectIds.has(id)), chapters: tutor.chapters.filter(id => chapterIds.has(id)) });
+    }
+    // Avis 5/5 de l'encadrante (séance passée d'Omar, transaction et avis du seed), ajouté aussi aux états qui ont déjà t4.
+    // Rien n'est ajouté si l'un des identifiants existe, si Omar, t4 en Anglais commercial ou l'offre Quick Help manquent.
+    const lacksSupervisorReview = candidate => ['reviews', 'bookings', 'transactions'].every(key => Array.isArray(candidate[key])) && !candidate.reviews.some(item => item && item.id === SUPERVISOR_REVIEW.review);
+    function addSupervisorReview(candidate, seeded) {
+      const review = seeded.reviews.find(item => item.id === SUPERVISOR_REVIEW.review);
+      const booking = seeded.bookings.find(item => item.id === SUPERVISOR_REVIEW.booking);
+      const transaction = seeded.transactions.find(item => item.id === SUPERVISOR_REVIEW.transaction);
+      if (!review || !booking || !transaction) return;
+      if (candidate.bookings.some(item => item && item.id === booking.id) || candidate.transactions.some(item => item && (item.id === transaction.id || item.orderId === transaction.orderId))) return;
+      const tutor = Array.isArray(candidate.tutors) && candidate.tutors.find(item => item && item.id === SUPERVISOR_ID);
+      const student = Array.isArray(candidate.users) && candidate.users.find(item => item && item.id === booking.studentId && item.role === 'student');
+      const offer = Array.isArray(candidate.offers) && candidate.offers.find(item => item && item.id === booking.offerId);
+      if (!tutor || !student || !offer || !Array.isArray(tutor.subjects) || !tutor.subjects.includes(SUPERVISOR_SUBJECT) || !Array.isArray(tutor.chapters) || !tutor.chapters.includes(booking.need.chapterId)) return;
+      candidate.transactions.push(transaction);
+      candidate.bookings.push(booking);
+      candidate.reviews.push(review);
     }
     const persisted = () => JSON.stringify(sessionStore ? { ...state, session: null } : state);
     function readSession(candidate) {

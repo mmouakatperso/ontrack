@@ -210,7 +210,7 @@ test('échec : refus ou abandon → failed, créneau libéré, e-mail d\'échec,
   const third = store.createBooking(input);
   store.gateway(third.id, 'cancelled');
   assert.equal(store.get().transactions.find(item => item.bookingId === third.id).failureReason, 'abandonné');
-  assert.equal(store.finance().revenue, 499, 'seuls les paiements du jeu initial sont encaissés');
+  assert.equal(store.finance().revenue, 549, 'seuls les paiements du jeu initial sont encaissés');
   assert.equal(store.get().bookings.filter(item => item.status === 'confirmed' && item.studentId === 's1').length, 0);
 });
 
@@ -391,7 +391,7 @@ test('rémunération : 0 DH en phase volontaire, tarif §9.2 figé au compte ren
   assert.equal(store.payoutSummary('t1').due, 0);
   assert.throws(() => store.recordPayout('t1'), /Aucune somme/);
   const finance = store.finance();
-  assert.equal(finance.revenue, 50 + 399 + 349 + 150);
+  assert.equal(finance.revenue, 50 + 399 + 349 + 150 + 50);
   assert.equal(finance.tutorPaid, 75);
   assert.equal(finance.byService.exam, 399);
   assert.equal(finance.kept, Math.round((finance.revenue - finance.refunded - finance.fees - finance.tutorDue - finance.tutorPaid) * 100) / 100);
@@ -1055,7 +1055,11 @@ test('encadrante tutrice : réservable en Anglais commercial avec les créneaux 
   assert.deepEqual(tutor.subjects, ['anglais-com', 'marketing']);
   assert.equal(tutor.chapters.length, 8);
   assert.equal(tutor.slots.length, state.tutors[0].slots.length);
-  assert.ok(!state.reviews.some(review => review.tutorId === 't4') && !state.bookings.some(booking => booking.tutorId === 't4'), 'ni avis ni séance inventés');
+  assert.deepEqual(tutor.languages, ['Anglais']);
+  const reviews = state.reviews.filter(review => review.tutorId === 't4');
+  assert.deepEqual(reviews.map(review => [review.rating, review.bookingId, review.hidden]), [[5, 'b-seed-4', false]], 'un seul avis, 5/5');
+  assert.equal(state.bookings.find(item => item.id === 'b-seed-4').status, 'completed');
+  assert.deepEqual(store.tutorRating('t4'), { average: 5, count: 1 });
   assert.equal(state.users.find(user => user.id === 't4').email, 'fatine.ouahtita@encg-casablanca.demo');
   const matches = store.matchTutors({ subjectId: 'anglais-com', chapterId: 'anglais-com-3' }, 'quick');
   assert.deepEqual(matches.map(item => item.tutorId), ['t4']);
@@ -1081,6 +1085,9 @@ test('migration : un état v3 sans l\'encadrante reçoit sa matière, son compte
     saved.subjects = saved.subjects.filter(subject => subject.id !== 'anglais-com');
     saved.users = saved.users.filter(user => user.id !== 't4');
     saved.tutors = saved.tutors.filter(tutor => tutor.id !== 't4');
+    saved.reviews = saved.reviews.filter(review => review.id !== 'r-seed-3');
+    saved.bookings = saved.bookings.filter(booking => booking.id !== 'b-seed-4');
+    saved.transactions = saved.transactions.filter(transaction => transaction.id !== 'tx-seed-3');
     if (mutate) mutate(saved);
     storage.setItem(KEY, JSON.stringify(saved));
     return { storage, saved };
@@ -1094,7 +1101,11 @@ test('migration : un état v3 sans l\'encadrante reçoit sa matière, son compte
   assert.ok(state.subjects.some(subject => subject.id === 'anglais-com'));
   assert.ok(state.users.some(user => user.id === 't4' && user.role === 'tutor'));
   assert.equal(state.tutors.find(tutor => tutor.id === 't4').status, 'approved');
-  for (const key of ['bookings', 'reviews', 'transactions']) assert.deepEqual(state[key], saved[key], key);
+  // L'avis 5/5 de l'encadrante arrive avec sa séance et sa transaction ; le reste est inchangé.
+  const seedIds = ['b-seed-4', 'r-seed-3', 'tx-seed-3'];
+  for (const key of ['bookings', 'reviews', 'transactions']) assert.deepEqual(state[key].filter(item => !seedIds.includes(item.id)), saved[key], key);
+  assert.equal(state.reviews.find(review => review.id === 'r-seed-3').rating, 5);
+  assert.equal(migrated.tutorRating('t4').average, 5);
   assert.deepEqual(state.tutors.filter(tutor => tutor.id !== 't4'), saved.tutors);
   const persisted = JSON.parse(storage.getItem(KEY));
   assert.ok(persisted.tutors.some(tutor => tutor.id === 't4'), 'migration enregistrée');
@@ -1102,8 +1113,18 @@ test('migration : un état v3 sans l\'encadrante reçoit sa matière, son compte
   const snapshot = storage.getItem(KEY);
   assert.equal(createStore(storage, clock, memoryStorage()).warning(), '');
   assert.equal(storage.getItem(KEY), snapshot);
-  // Matière supprimée par l'administration alors que t4 existe : pas de réinsertion.
-  const removed = JSON.parse(snapshot);
+  // État qui a déjà t4 mais pas encore son avis : l'avis, sa séance et sa transaction sont ajoutés une fois.
+  const withoutReview = JSON.parse(snapshot);
+  withoutReview.reviews = withoutReview.reviews.filter(review => !seedIds.includes(review.id));
+  withoutReview.bookings = withoutReview.bookings.filter(booking => !seedIds.includes(booking.id));
+  withoutReview.transactions = withoutReview.transactions.filter(transaction => !seedIds.includes(transaction.id));
+  storage.setItem(KEY, JSON.stringify(withoutReview));
+  const reviewed = createStore(storage, clock, memoryStorage());
+  assert.equal(reviewed.warning(), '');
+  assert.deepEqual(reviewed.tutorRating('t4'), { average: 5, count: 1 });
+  assert.equal(reviewed.finance().revenue, migrated.finance().revenue);
+  // Matière supprimée par l'administration (état antérieur à l'avis) alors que t4 existe : ni réinsertion, ni avis.
+  const removed = withoutReview;
   removed.subjects = removed.subjects.filter(subject => subject.id !== 'anglais-com');
   const t4 = removed.tutors.find(tutor => tutor.id === 't4');
   t4.subjects = ['marketing']; t4.chapters = t4.chapters.filter(id => id.startsWith('marketing-'));
@@ -1111,6 +1132,7 @@ test('migration : un état v3 sans l\'encadrante reçoit sa matière, son compte
   const afterRemoval = createStore(storage, clock, memoryStorage());
   assert.equal(afterRemoval.warning(), '');
   assert.ok(!afterRemoval.get().subjects.some(subject => subject.id === 'anglais-com'), 'pas de réinsertion');
+  assert.ok(!afterRemoval.get().reviews.some(review => review.id === 'r-seed-3'), 'pas d\'avis sans la matière');
   // E-mail ou identifiant de chapitre déjà pris : aucun ajout, état chargé tel quel.
   const collisions = [
     state => { state.users.push({ ...state.users.find(user => user.id === 't1'), id: 'stu-x', role: 'student', email: 'fatine.ouahtita@encg-casablanca.demo', encg: 'Casablanca', level: 'S1', track: 'Tronc commun' }); },
@@ -1137,5 +1159,5 @@ test('migration : un état v3 sans l\'encadrante reçoit sa matière, son compte
   assert.deepEqual(combined.chat.rooms.map(room => room.id), ['r-tc', 'r-gestion', 'r-commerce', 'r-finance', 'r-compta-gen', 'r-stats']);
   assert.ok(combined.tutors.some(tutor => tutor.id === 't4') && combined.users.some(user => user.id === 't4') && combined.subjects.some(subject => subject.id === 'anglais-com'));
   assert.equal(combined.offers.find(offer => offer.id === 'quick').price, 77, 'données conservées');
-  for (const key of ['bookings', 'reviews', 'transactions']) assert.deepEqual(combined[key], bareSaved[key], key);
+  for (const key of ['bookings', 'reviews', 'transactions']) assert.deepEqual(combined[key].filter(item => !seedIds.includes(item.id)), bareSaved[key], key);
 });
