@@ -430,7 +430,8 @@ test('encadrante tutrice : trois cartes à l\'accueil, profil sans photo, matiè
   store.logout();
   const suspended = render(store, ['accueil']);
   assert.match(suspended, /Profils fictifs de démonstration\. Photos illustratives publiées avec consentement simulé\./);
-  assert.doesNotMatch(suspended, /Dr Fatine Ouahtita/);
+  const suspendedTutors = suspended.slice(suspended.indexOf('aria-labelledby="tuteurs"'));
+  assert.doesNotMatch(suspendedTutors.slice(0, suspendedTutors.indexOf('</section>')), /Dr Fatine Ouahtita/, 'carte retirée, l\'encadrement reste cité dans « Le projet »');
 });
 
 test('équipe du projet : sept étudiants sous le pavé de l\'encadrante, icône pour la responsable ; liens sociaux du pied de page', () => {
@@ -459,4 +460,25 @@ test('équipe du projet : sept étudiants sous le pavé de l\'encadrante, icône
   assert.match(social, /<a href="https:\/\/www\.instagram\.com\/stay_ontrack_\/" target="_blank" rel="noopener noreferrer">[\s\S]*?Instagram<\/a>/);
   assert.match(social, /<a href="https:\/\/www\.tiktok\.com\/@stay___ontrack" target="_blank" rel="noopener noreferrer">[\s\S]*?TikTok<\/a>/);
   assert.doesNotMatch(social, /xtok|_r=|_t=/, 'sans paramètres de suivi');
+});
+
+test('présentation accessible depuis le menu principal et l\'aperçu « Le projet » de l\'accueil', () => {
+  const store = createStore(null, () => new Date('2026-10-23T08:00:00Z'));
+  const shell = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const nav = shell.slice(shell.indexOf('<nav aria-label="Navigation principale"'), shell.indexOf('</nav>'));
+  assert.match(nav, /<a href="#presentation" data-nav="presentation" data-i18n>Présentation<\/a>/);
+  const home = render(store, ['accueil']);
+  const start = home.indexOf('<section class="tint" aria-labelledby="projet-apercu">');
+  assert.ok(start > home.indexOf('aria-labelledby="pods-apercu"'), 'en fin d\'accueil, après Study Pods');
+  const section = home.slice(start, home.indexOf('</section>', start));
+  assert.match(section, /une équipe de 7 étudiants, encadré par Dr Fatine Ouahtita/);
+  assert.match(section, /<a class="button secondary" href="#presentation">Découvrir le projet<\/a>/);
+  const names = [...section.matchAll(/<span class="team-name">([^<]+)<\/span>/g)].map(match => match[1]);
+  assert.equal(names.length, 7);
+  assert.equal((section.match(/class="team-leader"/g) || []).length, 1);
+  O.i18n.set('en');
+  let english;
+  try { english = render(store, ['accueil']); } finally { O.i18n.set('fr'); }
+  assert.match(english, /a team of 7 students, supervised by Dr Fatine Ouahtita/);
+  assert.match(english, />Discover the project<\/a>/);
 });
